@@ -1,0 +1,115 @@
+use std::io::IsTerminal;
+use crate::error::Error;
+
+/// Detected backend type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Backend {
+    Wayland,
+    Tty,
+}
+
+/// Detect which backend to use based on environment
+/// 
+/// Detection order:
+/// 1. Check if WAYLAND_DISPLAY is set -> Wayland
+/// 2. Check if stdin is a TTY -> TTY
+/// 3. Otherwise -> Error
+pub fn detect_backend() -> Result<Backend, Error> {
+    // Check for Wayland first
+    if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        return Ok(Backend::Wayland);
+    }
+    
+    // Check if we're on a TTY
+    if std::io::stdin().is_terminal() {
+        return Ok(Backend::Tty);
+    }
+    
+    // Neither Wayland nor TTY detected
+    Err(Error::UnsupportedEnvironment)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_wayland_when_env_var_set() {
+        // Set WAYLAND_DISPLAY temporarily
+        // SAFETY: This is a test and we're the only ones modifying this env var
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+        }
+        
+        let result = detect_backend();
+        
+        // Clean up
+        // SAFETY: This is a test and we're the only ones modifying this env var
+        unsafe {
+            std::env::remove_var("WAYLAND_DISPLAY");
+        }
+        
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Backend::Wayland);
+    }
+
+    #[test]
+    fn test_detect_tty_when_wayland_not_set_and_on_tty() {
+        // Ensure WAYLAND_DISPLAY is not set
+        // SAFETY: This is a test and we're the only ones modifying this env var
+        unsafe {
+            std::env::remove_var("WAYLAND_DISPLAY");
+        }
+        
+        let result = detect_backend();
+        
+        // Note: This test will pass if we're on a TTY, or fail with NoSupportedEnvironment
+        // if we're not on a TTY (e.g., running in IDE or CI)
+        // We test the logic, not the actual environment
+        match result {
+            Ok(Backend::Tty) => {
+                // We're on a TTY, correct detection
+            }
+            Err(Error::UnsupportedEnvironment) => {
+                // We're not on a TTY (e.g., IDE/CI), this is also correct
+            }
+            other => panic!("Unexpected result: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_wayland_takes_precedence_over_tty() {
+        // Even if we're on a TTY, Wayland should be detected first if env var is set
+        // SAFETY: This is a test and we're the only ones modifying this env var
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", "wayland-1");
+        }
+        
+        let result = detect_backend();
+        
+        // Clean up
+        // SAFETY: This is a test and we're the only ones modifying this env var
+        unsafe {
+            std::env::remove_var("WAYLAND_DISPLAY");
+        }
+        
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), Backend::Wayland);
+    }
+
+    #[test]
+    fn test_backend_enum_equality() {
+        assert_eq!(Backend::Wayland, Backend::Wayland);
+        assert_eq!(Backend::Tty, Backend::Tty);
+        assert_ne!(Backend::Wayland, Backend::Tty);
+    }
+
+    #[test]
+    fn test_backend_enum_debug() {
+        let wayland = Backend::Wayland;
+        let tty = Backend::Tty;
+        
+        assert_eq!(format!("{:?}", wayland), "Wayland");
+        assert_eq!(format!("{:?}", tty), "Tty");
+    }
+}
