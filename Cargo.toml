@@ -8,3 +8,8 @@ clap = { version = "4", default-features = false, features = ["derive", "std"] }
 thiserror = { version = "1", default-features = false }
 wayland-client = { version = "0.31", default-features = false }
 wayland-protocols-wlr = { version = "0.3", default-features = false, features = ["client"] }
+drm = { version = "0.12", default-features = false }
+libseat = { version = "0.2", default-features = false }
+rustix = { version = "0.38", default-features = false, features = ["fs"] }
+nix = { version = "0.29", default-features = false, features = ["signal", "process", "fs", "user"] }
+libc = { version = "0.2", default-features = false }

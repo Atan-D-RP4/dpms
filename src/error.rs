@@ -36,6 +36,24 @@ pub enum Error {
     #[error("Daemon did not stop within timeout period")]
     DaemonStopTimeout,
 
+    #[error("Fork failed: {0}")]
+    ForkError(String),
+
+    #[error("Signal operation failed: {0}")]
+    SignalError(String),
+
+    #[error("PID file operation failed: {0}")]
+    PidFileError(String),
+
+    #[error("DRM operation failed: {0}")]
+    DrmError(String),
+
+    #[error("libseat operation failed: {0}")]
+    SeatError(String),
+
+    #[error("No connected display found")]
+    NoConnectedDisplay,
+
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -75,6 +93,12 @@ mod tests {
             Error::NoDisplayFound,
             Error::DaemonStartFailed,
             Error::DaemonStopTimeout,
+            Error::ForkError("test".to_string()),
+            Error::SignalError("test".to_string()),
+            Error::PidFileError("test".to_string()),
+            Error::DrmError("test".to_string()),
+            Error::SeatError("test".to_string()),
+            Error::NoConnectedDisplay,
             Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "test")),
         ];
 
@@ -96,6 +120,12 @@ mod tests {
             Error::NoDisplayFound,
             Error::DaemonStartFailed,
             Error::DaemonStopTimeout,
+            Error::ForkError("test".to_string()),
+            Error::SignalError("test".to_string()),
+            Error::PidFileError("test".to_string()),
+            Error::DrmError("test".to_string()),
+            Error::SeatError("test".to_string()),
+            Error::NoConnectedDisplay,
             Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "test")),
         ];
 

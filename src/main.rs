@@ -1,8 +1,11 @@
 mod backend;
 mod cli;
+mod daemon;
+mod drm_ops;
 mod env;
 mod error;
 mod output;
+mod tty;
 mod wayland;
 
 use std::process::ExitCode as StdExitCode;
