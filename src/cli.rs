@@ -103,4 +103,17 @@ mod tests {
         let result = Cli::try_parse_from(["powermon", "foo"]);
         assert!(result.is_err(), "Expected parsing to fail for invalid command");
     }
+
+    #[test]
+    fn test_usage_error_exit_code() {
+        // Verify clap errors for invalid commands return exit code 2
+        // This tests AC2: usage errors exit with code 2
+        let result = Cli::try_parse_from(["powermon", "invalid"]);
+        assert!(result.is_err());
+        
+        let err = result.unwrap_err();
+        // Clap errors have an exit method that returns the exit code
+        // For usage/validation errors, clap returns exit code 2
+        assert_eq!(err.exit_code(), 2, "Usage errors should exit with code 2");
+    }
 }

@@ -1,47 +1,31 @@
+mod backend;
 mod cli;
 mod env;
 mod error;
+mod output;
 
 use std::process::ExitCode as StdExitCode;
 
 fn main() -> StdExitCode {
-    // Parse CLI arguments - clap handles usage errors and exits with code 2
+    // Parse CLI arguments - clap handles usage errors and exits with code 2 (default clap behavior)
     let command = cli::parse();
     
     // Run the main logic
     match run(command) {
-        Ok(()) => StdExitCode::from(0),
+        Ok(()) => error::ExitCode::Success.into(),
         Err(e) => {
             // All errors go to stderr
             eprintln!("Error: {}", e);
-            // Map our error to exit code
-            let code = e.exit_code();
-            StdExitCode::from(code as u8)
+            // Map our error to exit code using proper From impl
+            e.exit_code().into()
         }
     }
 }
 
 /// Main application logic - will be implemented in later features
-fn run(command: cli::Command) -> Result<(), error::Error> {
+fn run(_command: cli::Command) -> Result<(), error::Error> {
     // Stub implementation - will be replaced by dispatch logic in F10
-    // For now, just demonstrate error handling works
-    match command {
-        cli::Command::On => {
-            // Placeholder: would call backend
-            eprintln!("Debug: Command::On received");
-            Ok(())
-        }
-        cli::Command::Off => {
-            // Placeholder: would call backend
-            eprintln!("Debug: Command::Off received");
-            Ok(())
-        }
-        cli::Command::Status { json } => {
-            // Placeholder: would query backend
-            eprintln!("Debug: Command::Status {{ json: {} }} received", json);
-            Ok(())
-        }
-    }
+    Ok(())
 }
 
 #[cfg(test)]
