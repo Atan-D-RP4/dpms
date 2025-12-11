@@ -103,7 +103,7 @@ fn is_daemon_running() -> Option<nix::unistd::Pid> {
 /// 2. Opens DRM device
 /// 3. Disables CRTC (turns off display)
 /// 4. Writes PID file
-/// 5. Waits for SIGTERM to restore and exit
+/// 5. Waits for SIGTERM/SIGINT to restore and exit
 ///
 /// The parent process returns immediately after verifying the daemon started.
 ///

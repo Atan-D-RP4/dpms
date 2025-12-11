@@ -26,22 +26,50 @@ fn main() -> StdExitCode {
     }
 }
 
-/// Main application logic - will be implemented in later features
-fn run(_command: cli::Command) -> Result<(), error::Error> {
-    // Stub implementation - will be replaced by dispatch logic in F10
-    Ok(())
+/// Main application logic - dispatches commands to appropriate backend
+fn run(command: cli::Command) -> Result<(), error::Error> {
+    // Detect which backend to use based on environment
+    let backend_type = env::detect_backend()?;
+    
+    // Create appropriate backend and execute command
+    match backend_type {
+        env::Backend::Wayland => {
+            let mut backend = wayland::WaylandBackend::new()?;
+            execute_command(&mut backend, command)
+        }
+        env::Backend::Tty => {
+            let mut backend = tty::TtyBackend::new()?;
+            execute_command(&mut backend, command)
+        }
+    }
+}
+
+/// Execute a command using the given backend
+fn execute_command<B: backend::PowerBackend>(
+    backend: &mut B,
+    command: cli::Command,
+) -> Result<(), error::Error> {
+    match command {
+        cli::Command::On => {
+            backend.set_power(output::PowerState::On)?;
+            Ok(())
+        }
+        cli::Command::Off => {
+            backend.set_power(output::PowerState::Off)?;
+            Ok(())
+        }
+        cli::Command::Status { json } => {
+            let state = backend.get_power()?;
+            let status_output = output::StatusOutput::new(state);
+            print!("{}", status_output.format(json));
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_run_success_returns_exit_code_0() {
-        let command = cli::Command::On;
-        let result = run(command);
-        assert!(result.is_ok());
-    }
 
     #[test]
     fn test_error_converts_to_exit_code_1() {

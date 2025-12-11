@@ -2,7 +2,7 @@
 ///
 /// This module implements the daemon process for TTY display power control.
 /// The daemon holds DRM master to keep the display off and responds to signals:
-/// - SIGTERM: Restore display and exit cleanly
+/// - SIGTERM/SIGINT: Restore display and exit cleanly
 ///
 /// The daemon uses a PID file at `/run/user/$UID/powermon.pid` for single-instance
 /// enforcement and IPC coordination.
@@ -156,29 +156,36 @@ pub fn is_daemon_running() -> Option<Pid> {
     }
 }
 
-/// Signal handler for SIGTERM
+/// Signal handler for SIGTERM and SIGINT
 ///
 /// Sets the global shutdown flag to request daemon exit
-extern "C" fn handle_sigterm(_: libc::c_int) {
+extern "C" fn handle_shutdown_signal(_: libc::c_int) {
     SHUTDOWN_REQUESTED.store(true, Ordering::SeqCst);
 }
 
-/// Install signal handler for SIGTERM
+/// Install signal handlers for SIGTERM and SIGINT
 ///
 /// # Returns
-/// - `Ok(())` - Signal handler installed successfully
-/// - `Err(Error)` - Failed to install signal handler
-fn install_signal_handler() -> Result<(), Error> {
+/// - `Ok(())` - Signal handlers installed successfully
+/// - `Err(Error)` - Failed to install signal handlers
+fn install_signal_handlers() -> Result<(), Error> {
     // Use sigaction for reliable signal handling
     let sig_action = signal::SigAction::new(
-        signal::SigHandler::Handler(handle_sigterm),
+        signal::SigHandler::Handler(handle_shutdown_signal),
         signal::SaFlags::empty(),
         signal::SigSet::empty(),
     );
 
+    // Install handler for SIGTERM
     unsafe {
         signal::sigaction(Signal::SIGTERM, &sig_action)
             .map_err(|e| Error::SignalError(format!("Failed to install SIGTERM handler: {}", e)))?;
+    }
+
+    // Install handler for SIGINT
+    unsafe {
+        signal::sigaction(Signal::SIGINT, &sig_action)
+            .map_err(|e| Error::SignalError(format!("Failed to install SIGINT handler: {}", e)))?;
     }
 
     Ok(())
@@ -190,7 +197,7 @@ fn install_signal_handler() -> Result<(), Error> {
 /// 1. Opens libseat session and DRM device
 /// 2. Disables CRTC (turns off display)
 /// 3. Writes PID file
-/// 4. Installs signal handler for SIGTERM
+/// 4. Installs signal handlers for SIGTERM and SIGINT
 /// 5. Waits for shutdown signal
 /// 6. Restores CRTC (turns on display)
 /// 7. Cleans up and exits
@@ -198,9 +205,9 @@ fn install_signal_handler() -> Result<(), Error> {
 /// # Returns
 /// This function does not return - it exits the process
 fn daemon_main() -> ! {
-    // Install signal handler first
-    if let Err(e) = install_signal_handler() {
-        eprintln!("Failed to install signal handler: {}", e);
+    // Install signal handlers first
+    if let Err(e) = install_signal_handlers() {
+        eprintln!("Failed to install signal handlers: {}", e);
         std::process::exit(1);
     }
 
@@ -279,7 +286,7 @@ fn daemon_main() -> ! {
 /// 2. Opens DRM device
 /// 3. Disables CRTC (turns off display)
 /// 4. Writes PID file
-/// 5. Waits for SIGTERM to restore and exit
+/// 5. Waits for SIGTERM/SIGINT to restore and exit
 ///
 /// The parent process returns immediately after verifying the daemon started.
 ///
