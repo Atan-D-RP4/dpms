@@ -3,6 +3,7 @@ mod cli;
 mod env;
 mod error;
 mod output;
+mod wayland;
 
 use std::process::ExitCode as StdExitCode;
 

@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 clap = { version = "4", default-features = false, features = ["derive", "std"] }
 thiserror = { version = "1", default-features = false }
+wayland-client = { version = "0.31", default-features = false }
+wayland-protocols-wlr = { version = "0.3", default-features = false, features = ["client"] }
