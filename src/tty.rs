@@ -35,7 +35,7 @@ impl TtyBackend {
         // Validate we can access DRM/seat by attempting to open
         // This ensures we fail fast if permissions are wrong
         // But we don't keep the connection open (daemon will open its own)
-        crate::drm_ops::open_drm_with_libseat()?;
+        crate::drm_ops::open_drm()?;
 
         Ok(TtyBackend)
     }

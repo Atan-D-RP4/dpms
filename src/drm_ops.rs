@@ -2,33 +2,57 @@
 ///
 /// This module provides low-level DRM atomic modesetting operations to control
 /// display power state via CRTC ACTIVE property. Uses libseat for device access
-/// without requiring root privileges.
+/// without requiring root privileges, with fallback to direct DRM access.
 use crate::error::Error;
 use drm::Device;
 use drm::control::{AtomicCommitFlags, Device as ControlDevice, atomic, connector, crtc, property};
-use libseat::Seat;
 use std::fs::File;
 use std::os::fd::{AsFd, BorrowedFd};
-use std::sync::Arc;
-use std::sync::Mutex;
 
-/// Wrapper around DRM device file descriptor
+/// Wrapper around DRM device
 ///
 /// Implements the `drm::Device` trait to enable DRM operations.
-/// Must be kept alive alongside the Seat that opened it.
+/// Can be opened via libseat (preferred) or directly (fallback).
 #[derive(Debug)]
 pub struct DrmDevice {
-    fd: File,
+    inner: DrmDeviceInner,
+}
+
+/// Inner enum to hold either libseat device or direct file
+#[derive(Debug)]
+enum DrmDeviceInner {
+    /// Opened via libseat - has DRM master privileges via seat
+    Libseat(libseat::Device),
+    /// Opened directly - may or may not have DRM master
+    Direct(File),
 }
 
 impl AsFd for DrmDevice {
     fn as_fd(&self) -> BorrowedFd<'_> {
-        self.fd.as_fd()
+        match &self.inner {
+            DrmDeviceInner::Libseat(dev) => dev.as_fd(),
+            DrmDeviceInner::Direct(file) => file.as_fd(),
+        }
     }
 }
 
 impl Device for DrmDevice {}
 impl ControlDevice for DrmDevice {}
+
+/// Holder for seat - may be None if using direct access
+pub enum SeatHolder {
+    Seat(libseat::Seat),
+    None,
+}
+
+impl std::fmt::Debug for SeatHolder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SeatHolder::Seat(_) => write!(f, "SeatHolder::Seat(...)"),
+            SeatHolder::None => write!(f, "SeatHolder::None"),
+        }
+    }
+}
 
 /// Open a DRM device using libseat for session management
 ///
@@ -37,7 +61,7 @@ impl ControlDevice for DrmDevice {}
 /// in a logind session.
 ///
 /// # Returns
-/// - `Ok((Seat, DrmDevice))` - The opened seat and DRM device
+/// - `Ok((SeatHolder, DrmDevice))` - The opened seat and DRM device
 /// - `Err(Error::SeatError)` - Failed to open seat or device
 ///
 /// # Example
@@ -46,13 +70,15 @@ impl ControlDevice for DrmDevice {}
 /// let (seat, drm) = open_drm_with_libseat()?;
 /// # Ok::<(), powermon::error::Error>(())
 /// ```
-pub fn open_drm_with_libseat() -> Result<(Seat, DrmDevice), Error> {
+pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
+    use std::sync::{Arc, Mutex};
+
     // Track seat events (we need to keep receiving events but don't need to act on them)
-    let seat_event = Arc::new(Mutex::new(None));
+    let seat_event: Arc<Mutex<Option<libseat::SeatEvent>>> = Arc::new(Mutex::new(None));
     let seat_event_clone = Arc::clone(&seat_event);
 
     // Open seat with callback for events
-    let mut seat = Seat::open(move |_seat, event| {
+    let mut seat = libseat::Seat::open(move |_seat, event| {
         *seat_event_clone.lock().unwrap() = Some(event);
     })
     .map_err(|e| Error::SeatError(format!("Failed to open seat: {:?}", e)))?;
@@ -65,17 +91,14 @@ pub fn open_drm_with_libseat() -> Result<(Seat, DrmDevice), Error> {
     let drm_paths = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"];
 
     for path in &drm_paths {
-        // libseat needs to open the device to grant us permission
-        // After that, we can open it ourselves as a regular file
+        // libseat opens the device and grants us DRM master privileges
+        // We MUST use the fd returned by libseat, not open a new one
         match seat.open_device(path) {
-            Ok(_device) => {
-                // Now open the device ourselves to get a File handle
-                let file = File::open(path).map_err(|e| {
-                    Error::SeatError(format!("Failed to open DRM device {}: {}", path, e))
-                })?;
-
-                // Create DRM device from file
-                let drm_device = DrmDevice { fd: file };
+            Ok(libseat_device) => {
+                // Create DRM device from the libseat device
+                let drm_device = DrmDevice {
+                    inner: DrmDeviceInner::Libseat(libseat_device),
+                };
 
                 // Set DRM client capabilities for atomic modesetting
                 if let Err(e) =
@@ -87,7 +110,7 @@ pub fn open_drm_with_libseat() -> Result<(Seat, DrmDevice), Error> {
                     )));
                 }
 
-                return Ok((seat, drm_device));
+                return Ok((SeatHolder::Seat(seat), drm_device));
             }
             Err(_) => continue,
         }
@@ -96,6 +119,61 @@ pub fn open_drm_with_libseat() -> Result<(Seat, DrmDevice), Error> {
     Err(Error::SeatError(
         "No DRM device found at /dev/dri/card[0-2]".to_string(),
     ))
+}
+
+/// Open a DRM device directly without libseat
+///
+/// This is a fallback for when libseat is unavailable (e.g., SSH session).
+/// Requires user to be in the video group. May not have DRM master if another
+/// process holds it.
+///
+/// # Returns
+/// - `Ok((SeatHolder::None, DrmDevice))` - The opened DRM device
+/// - `Err(Error::DrmError)` - Failed to open device
+pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
+    let drm_paths = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"];
+
+    for path in &drm_paths {
+        match File::open(path) {
+            Ok(file) => {
+                let drm_device = DrmDevice {
+                    inner: DrmDeviceInner::Direct(file),
+                };
+
+                // Set DRM client capabilities for atomic modesetting
+                if drm_device
+                    .set_client_capability(drm::ClientCapability::Atomic, true)
+                    .is_err()
+                {
+                    // This device doesn't support atomic, try next
+                    continue;
+                }
+
+                return Ok((SeatHolder::None, drm_device));
+            }
+            Err(_) => continue,
+        }
+    }
+
+    Err(Error::DrmError(
+        "No DRM device found at /dev/dri/card[0-2]".to_string(),
+    ))
+}
+
+/// Open a DRM device, trying libseat first then falling back to direct access
+///
+/// # Returns
+/// - `Ok((SeatHolder, DrmDevice))` - The opened DRM device
+/// - `Err(Error)` - Both libseat and direct access failed
+pub fn open_drm() -> Result<(SeatHolder, DrmDevice), Error> {
+    // Try libseat first (preferred - handles session activation properly)
+    match open_drm_with_libseat() {
+        Ok(result) => Ok(result),
+        Err(_libseat_err) => {
+            // Libseat failed, try direct access
+            open_drm_direct()
+        }
+    }
 }
 
 impl DrmDevice {

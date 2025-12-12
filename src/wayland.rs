@@ -229,7 +229,9 @@ impl Dispatch<zwlr_output_power_v1::ZwlrOutputPowerV1, ()> for WaylandState {
         _qh: &QueueHandle<Self>,
     ) {
         match event {
-            zwlr_output_power_v1::Event::Mode { mode: WEnum::Value(m) } => {
+            zwlr_output_power_v1::Event::Mode {
+                mode: WEnum::Value(m),
+            } => {
                 // Store the current mode, extracting from WEnum wrapper
                 state.current_mode = Some(m);
             }

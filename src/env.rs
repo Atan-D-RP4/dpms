@@ -21,7 +21,15 @@ pub fn detect_backend() -> Result<Backend, Error> {
     }
 
     // Check if we're on a TTY
+    // 1. stdin is a terminal (interactive shell)
+    // 2. XDG_SESSION_TYPE is "tty" (logind session, works from SSH too)
     if std::io::stdin().is_terminal() {
+        return Ok(Backend::Tty);
+    }
+    if std::env::var("XDG_SESSION_TYPE")
+        .map(|v| v == "tty")
+        .unwrap_or(false)
+    {
         return Ok(Backend::Tty);
     }
 

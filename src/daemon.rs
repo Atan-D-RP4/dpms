@@ -6,7 +6,7 @@
 ///
 /// The daemon uses a PID file at `/run/user/$UID/powermon.pid` for single-instance
 /// enforcement and IPC coordination.
-use crate::drm_ops::open_drm_with_libseat;
+use crate::drm_ops::{SeatHolder, open_drm};
 use crate::error::Error;
 use nix::sys::signal::{self, Signal};
 use nix::unistd::{ForkResult, Pid, fork, setsid};
@@ -211,7 +211,7 @@ fn daemon_main() -> ! {
     }
 
     // Open seat and DRM device
-    let (mut seat, drm) = match open_drm_with_libseat() {
+    let (mut seat_holder, drm) = match open_drm() {
         Ok(result) => result,
         Err(e) => {
             eprintln!("Failed to open DRM device: {}", e);
@@ -254,8 +254,10 @@ fn daemon_main() -> ! {
 
     // Main daemon loop - wait for shutdown signal
     while !SHUTDOWN_REQUESTED.load(Ordering::SeqCst) {
-        // Dispatch seat events (required to keep session alive)
-        if let Err(e) = seat.dispatch(100) {
+        // Dispatch seat events if using libseat (required to keep session alive)
+        if let SeatHolder::Seat(ref mut seat) = seat_holder
+            && let Err(e) = seat.dispatch(100)
+        {
             eprintln!("Failed to dispatch seat events: {:?}", e);
             break;
         }
@@ -303,16 +305,19 @@ pub fn start_daemon() -> Result<(), Error> {
     match unsafe { fork() } {
         Ok(ForkResult::Parent { child }) => {
             // Parent process: wait for daemon to start and write PID file
-            thread::sleep(Duration::from_millis(200));
-
-            // Verify daemon started by checking PID file
+            // Retry up to 20 times (2 seconds total) to handle slow DRM init
             let pid_path = get_pid_file_path()?;
-            if pid_path.exists() {
-                // Verify the PID in the file is actually the child we forked
-                if let Ok(Some(pid)) = read_pid_file(&pid_path)
-                    && pid == child {
+            for _ in 0..20 {
+                thread::sleep(Duration::from_millis(100));
+
+                if pid_path.exists() {
+                    // Verify the PID in the file is actually the child we forked
+                    if let Ok(Some(pid)) = read_pid_file(&pid_path)
+                        && pid == child
+                    {
                         return Ok(());
                     }
+                }
             }
 
             Err(Error::DaemonStartFailed)

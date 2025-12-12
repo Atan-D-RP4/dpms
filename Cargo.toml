@@ -11,7 +11,7 @@ panic = "abort"
 strip = true
 
 [dependencies]
-clap = { version = "4", default-features = false, features = ["derive", "std"] }
+clap = { version = "4", default-features = false, features = ["derive", "std", "help"] }
 thiserror = { version = "1", default-features = false }
 wayland-client = { version = "0.31", default-features = false }
 wayland-protocols-wlr = { version = "0.3", default-features = false, features = ["client"] }
