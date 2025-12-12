@@ -28,9 +28,9 @@ impl TtyBackend {
     ///
     /// # Example
     /// ```no_run
-    /// # use powermon::tty::TtyBackend;
+    /// # use dpms::tty::TtyBackend;
     /// let backend = TtyBackend::new()?;
-    /// # Ok::<(), powermon::error::Error>(())
+    /// # Ok::<(), dpms::error::Error>(())
     /// ```
     pub fn new() -> Result<Self, Error> {
         // Validate we can access DRM/seat by attempting to open

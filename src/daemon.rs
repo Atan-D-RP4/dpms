@@ -4,43 +4,38 @@
 /// The daemon holds DRM master to keep the display off and responds to signals:
 /// - SIGTERM/SIGINT: Restore display and exit cleanly
 ///
-/// The daemon uses a PID file at `/run/user/$UID/powermon.pid` for single-instance
+/// The daemon uses a PID file at `/run/user/$UID/dpms.pid` for single-instance
 /// enforcement and IPC coordination.
 use crate::drm_ops::{SeatHolder, open_drm};
 use crate::error::Error;
-use nix::libc;
 use nix::sys::signal::{self, Signal};
-use nix::unistd::{ForkResult, Pid, fork, setsid};
+use nix::unistd::Pid;
+use signal_hook::consts::signal::{SIGINT, SIGTERM};
+use signal_hook::flag;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
-/// Global flag to signal daemon shutdown
-static SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
-
 /// Get the PID file path for the daemon
 ///
 /// # Returns
-/// Path to `/run/user/$UID/powermon.pid`
+/// Path to `/run/user/$UID/dpms.pid`
 ///
 /// # Errors
 /// Returns `Error::PidFileError` if XDG_RUNTIME_DIR is not set
 pub fn get_pid_file_path() -> Result<PathBuf, Error> {
-    let runtime_dir = std::env::var("XDG_RUNTIME_DIR")
-        .or_else(|_| {
-            // Fallback to /run/user/$UID if XDG_RUNTIME_DIR not set
-            // Use Uid::effective() to get current user's UID
-            let uid = nix::unistd::Uid::effective();
-            Ok(format!("/run/user/{}", uid))
-        })
-        .map_err(|e: std::env::VarError| {
-            Error::PidFileError(format!("Could not determine runtime directory: {}", e))
-        })?;
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| {
+        // Fallback to /run/user/$UID if XDG_RUNTIME_DIR not set
+        let uid = nix::unistd::Uid::effective();
+        format!("/run/user/{}", uid)
+    });
 
-    Ok(PathBuf::from(runtime_dir).join("powermon.pid"))
+    Ok(PathBuf::from(runtime_dir).join("dpms.pid"))
 }
 
 /// Check if a process with the given PID is running
@@ -126,7 +121,7 @@ fn remove_pid_file<P: AsRef<Path>>(path: P) -> Result<(), Error> {
     Ok(())
 }
 
-/// Check if the powermon daemon is currently running
+/// Check if the dpms daemon is currently running
 ///
 /// Returns the PID of the running daemon, or None if no daemon is running.
 /// Also cleans up stale PID files if the process is no longer alive.
@@ -156,58 +151,30 @@ pub fn is_daemon_running() -> Option<Pid> {
     }
 }
 
-/// Signal handler for SIGTERM and SIGINT
-///
-/// Sets the global shutdown flag to request daemon exit
-extern "C" fn handle_shutdown_signal(_: libc::c_int) {
-    SHUTDOWN_REQUESTED.store(true, Ordering::SeqCst);
-}
-
-/// Install signal handlers for SIGTERM and SIGINT
-///
-/// # Returns
-/// - `Ok(())` - Signal handlers installed successfully
-/// - `Err(Error)` - Failed to install signal handlers
-fn install_signal_handlers() -> Result<(), Error> {
-    // Use sigaction for reliable signal handling
-    let sig_action = signal::SigAction::new(
-        signal::SigHandler::Handler(handle_shutdown_signal),
-        signal::SaFlags::empty(),
-        signal::SigSet::empty(),
-    );
-
-    // Install handler for SIGTERM
-    unsafe {
-        signal::sigaction(Signal::SIGTERM, &sig_action)
-            .map_err(|e| Error::SignalError(format!("Failed to install SIGTERM handler: {}", e)))?;
-    }
-
-    // Install handler for SIGINT
-    unsafe {
-        signal::sigaction(Signal::SIGINT, &sig_action)
-            .map_err(|e| Error::SignalError(format!("Failed to install SIGINT handler: {}", e)))?;
-    }
-
-    Ok(())
-}
-
 /// Daemon main loop
 ///
-/// This function runs in the child process after fork. It:
+/// This function runs in the spawned daemon process. It:
 /// 1. Opens libseat session and DRM device
 /// 2. Disables CRTC (turns off display)
 /// 3. Writes PID file
-/// 4. Installs signal handlers for SIGTERM and SIGINT
+/// 4. Registers signal handlers for SIGTERM and SIGINT
 /// 5. Waits for shutdown signal
 /// 6. Restores CRTC (turns on display)
 /// 7. Cleans up and exits
 ///
 /// # Returns
 /// This function does not return - it exits the process
-fn daemon_main() -> ! {
-    // Install signal handlers first
-    if let Err(e) = install_signal_handlers() {
-        eprintln!("Failed to install signal handlers: {}", e);
+pub fn daemon_main() -> ! {
+    // Use signal-hook for safe signal handling
+    let shutdown_requested = Arc::new(AtomicBool::new(false));
+
+    // Register signal handlers - these safely set the flag when signals arrive
+    if let Err(e) = flag::register(SIGTERM, Arc::clone(&shutdown_requested)) {
+        eprintln!("Failed to register SIGTERM handler: {}", e);
+        std::process::exit(1);
+    }
+    if let Err(e) = flag::register(SIGINT, Arc::clone(&shutdown_requested)) {
+        eprintln!("Failed to register SIGINT handler: {}", e);
         std::process::exit(1);
     }
 
@@ -254,7 +221,7 @@ fn daemon_main() -> ! {
     }
 
     // Main daemon loop - wait for shutdown signal
-    while !SHUTDOWN_REQUESTED.load(Ordering::SeqCst) {
+    while !shutdown_requested.load(Ordering::SeqCst) {
         // Dispatch seat events if using libseat (required to keep session alive)
         if let SeatHolder::Seat(ref mut seat) = seat_holder
             && let Err(e) = seat.dispatch(100)
@@ -281,9 +248,9 @@ fn daemon_main() -> ! {
     std::process::exit(0);
 }
 
-/// Start the powermon daemon
+/// Start the dpms daemon
 ///
-/// Forks a new daemon process that:
+/// Spawns a new daemon process that:
 /// 1. Opens a libseat session
 /// 2. Opens DRM device
 /// 3. Disables CRTC (turns off display)
@@ -295,43 +262,46 @@ fn daemon_main() -> ! {
 /// # Returns
 /// - `Ok(())` - Daemon started successfully
 /// - `Err(Error::DaemonStartFailed)` - Daemon failed to start
-/// - `Err(Error::ForkError)` - Fork operation failed
 pub fn start_daemon() -> Result<(), Error> {
     // Check if daemon is already running (defense in depth)
-    if let Some(_pid) = is_daemon_running() {
+    if is_daemon_running().is_some() {
         return Ok(()); // Already running, idempotent
     }
 
-    // Fork into parent and child
-    match unsafe { fork() } {
-        Ok(ForkResult::Parent { child }) => {
-            // Parent process: wait for daemon to start and write PID file
-            // Retry up to 20 times (2 seconds total) to handle slow DRM init
-            let pid_path = get_pid_file_path()?;
-            for _ in 0..20 {
-                thread::sleep(Duration::from_millis(100));
+    // Get current executable path
+    let exe_path = std::env::current_exe()
+        .map_err(|e| Error::DaemonStartFailed(format!("Failed to get executable path: {}", e)))?;
 
-                if pid_path.exists() {
-                    // Verify the PID in the file is actually the child we forked
-                    if let Ok(Some(pid)) = read_pid_file(&pid_path)
-                        && pid == child
-                    {
-                        return Ok(());
-                    }
-                }
+    // Spawn daemon as a separate process with daemon-internal subcommand
+    let child = Command::new(&exe_path)
+        .arg("daemon-internal")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| Error::DaemonStartFailed(format!("Failed to spawn daemon: {}", e)))?;
+
+    let child_pid = Pid::from_raw(child.id() as i32);
+
+    // Wait for daemon to start and write PID file
+    // Retry up to 20 times (2 seconds total) to handle slow DRM init
+    let pid_path = get_pid_file_path()?;
+    for _ in 0..20 {
+        thread::sleep(Duration::from_millis(100));
+
+        if pid_path.exists() {
+            // Verify the PID in the file is actually the child we spawned
+            if let Ok(Some(pid)) = read_pid_file(&pid_path)
+                && pid == child_pid
+            {
+                return Ok(());
             }
-
-            Err(Error::DaemonStartFailed)
         }
-        Ok(ForkResult::Child) => {
-            // Child process: become session leader and run daemon
-            setsid().map_err(|e| Error::ForkError(format!("Failed to setsid: {}", e)))?;
-
-            // Run daemon main loop (this never returns)
-            daemon_main();
-        }
-        Err(e) => Err(Error::ForkError(format!("Fork failed: {}", e))),
     }
+
+    Err(Error::DaemonStartFailed(
+        "Daemon did not write PID file within timeout".to_string(),
+    ))
 }
 
 /// Stop the daemon by sending SIGTERM
@@ -393,7 +363,7 @@ mod tests {
             std::env::set_var("XDG_RUNTIME_DIR", "/run/user/1000");
         }
         let path = get_pid_file_path().unwrap();
-        assert_eq!(path, PathBuf::from("/run/user/1000/powermon.pid"));
+        assert_eq!(path, PathBuf::from("/run/user/1000/dpms.pid"));
     }
 
     #[test]
@@ -412,13 +382,13 @@ mod tests {
 
     #[test]
     fn read_pid_file_nonexistent() {
-        let result = read_pid_file("/tmp/powermon-test-nonexistent.pid").unwrap();
+        let result = read_pid_file("/tmp/dpms-test-nonexistent.pid").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
     fn write_and_read_pid_file() {
-        let test_path = "/tmp/powermon-test-write-read.pid";
+        let test_path = "/tmp/dpms-test-write-read.pid";
         let test_pid = Pid::from_raw(12345);
 
         // Clean up any existing file
@@ -437,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_remove_pid_file() {
-        let test_path = "/tmp/powermon-test-remove.pid";
+        let test_path = "/tmp/dpms-test-remove.pid";
 
         // Create a file
         let _ = fs::File::create(test_path);
@@ -457,12 +427,12 @@ mod tests {
         // When no PID file exists, should return None
         // This assumes no actual daemon is running
         unsafe {
-            std::env::set_var("XDG_RUNTIME_DIR", "/tmp/powermon-test-nofile");
+            std::env::set_var("XDG_RUNTIME_DIR", "/tmp/dpms-test-nofile");
         }
         let result = is_daemon_running();
         assert!(result.is_none());
     }
 
-    // Note: Full integration tests for fork/daemon require real DRM hardware
+    // Note: Full integration tests for spawn/daemon require real DRM hardware
     // and are part of manual testing
 }

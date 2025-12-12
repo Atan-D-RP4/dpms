@@ -1,13 +1,13 @@
-# powermon Technical Specification
+# dpms Technical Specification
 
-**Brief**: [powermon-brief.md](../brief/powermon-brief.md)
+**Brief**: [dpms-brief.md](../brief/dpms-brief.md)
 **Created**: 2025-12-12
 **Status**: Draft
 **Compliance Score**: 100%
 
 ## Executive Summary
 
-powermon is a hybrid monitor power control tool for Linux that works in both Wayland compositor and TTY (no compositor) environments. It enables power savings on laptop servers by reliably disabling displays without requiring root privileges, leveraging libseat for session management and Wayland protocols for compositor communication.
+dpms is a hybrid monitor power control tool for Linux that works in both Wayland compositor and TTY (no compositor) environments. It enables power savings on laptop servers by reliably disabling displays without requiring root privileges, leveraging libseat for session management and Wayland protocols for compositor communication.
 
 ## Data Contracts
 
@@ -24,7 +24,7 @@ powermon is a hybrid monitor power control tool for Linux that works in both Way
 | libseat | Session FD | File descriptor | From `libseat_open_seat()` |
 | DRM | Device FD | File descriptor | From `libseat_open_device()` |
 | DRM | Connector/CRTC info | ioctl response | Display topology |
-| Filesystem | PID file | File | `/run/user/$UID/powermon.pid` |
+| Filesystem | PID file | File | `/run/user/$UID/dpms.pid` |
 
 ### Outputs
 
@@ -41,10 +41,10 @@ powermon is a hybrid monitor power control tool for Linux that works in both Way
 
 ### Interface Constraints
 
-1. **CLI interface is stable v1 API**: `powermon {on|off|status} [--json]`
+1. **CLI interface is stable v1 API**: `dpms {on|off|status} [--json]`
 2. **Exit codes are stable**: 0=success, 1=error, 2=usage
 3. **JSON output schema is stable**: `{"power": "on"|"off"}`
-4. **PID file location is stable**: `/run/user/$UID/powermon.pid`
+4. **PID file location is stable**: `/run/user/$UID/dpms.pid`
 
 ### Scope Classification
 
@@ -56,7 +56,7 @@ powermon is a hybrid monitor power control tool for Linux that works in both Way
 
 ```
 +-------------------------------------------------------------+
-|                        powermon CLI                          |
+|                        dpms CLI                          |
 |  +----------------------------------------------------------+
 |  |                    Argument Parser                        |
 |  |              (clap: on|off|status [--json])               |
@@ -147,7 +147,7 @@ pub struct StatusOutput {
 |                    TTY Daemon Lifecycle                      |
 +-------------------------------------------------------------+
 
-  powermon off                    powermon on
+  dpms off                    dpms on
        |                               |
        v                               v
 +--------------+              +--------------+
@@ -213,23 +213,23 @@ drm = "0.11"
 
 **Acceptance Criteria**:
 
-- GIVEN user runs `powermon on`
+- GIVEN user runs `dpms on`
   WHEN command is parsed
   THEN `Command::On` is returned
 
-- GIVEN user runs `powermon off`
+- GIVEN user runs `dpms off`
   WHEN command is parsed
   THEN `Command::Off` is returned
 
-- GIVEN user runs `powermon status`
+- GIVEN user runs `dpms status`
   WHEN command is parsed
   THEN `Command::Status { json: false }` is returned
 
-- GIVEN user runs `powermon status --json`
+- GIVEN user runs `dpms status --json`
   WHEN command is parsed
   THEN `Command::Status { json: true }` is returned
 
-- GIVEN user runs `powermon foo`
+- GIVEN user runs `dpms foo`
   WHEN command is parsed
   THEN error is returned with exit code 2
 
@@ -340,7 +340,7 @@ ______________________________________________________________________
 - GIVEN user is in Wayland session
   AND compositor supports `zwlr_output_power_management_v1`
   AND display is currently on
-  WHEN user runs `powermon off`
+  WHEN user runs `dpms off`
   THEN `set_mode(off)` is sent to compositor
   AND display turns off
   AND command exits with code 0
@@ -348,21 +348,21 @@ ______________________________________________________________________
 - GIVEN user is in Wayland session
   AND compositor supports `zwlr_output_power_management_v1`
   AND display is currently off
-  WHEN user runs `powermon on`
+  WHEN user runs `dpms on`
   THEN `set_mode(on)` is sent to compositor
   AND display turns on
   AND command exits with code 0
 
 - GIVEN user is in Wayland session
   AND compositor supports `zwlr_output_power_management_v1`
-  WHEN user runs `powermon status`
+  WHEN user runs `dpms status`
   THEN current power state is queried from compositor
   AND stdout shows "Display: On" or "Display: Off"
   AND command exits with code 0
 
 - GIVEN user is in Wayland session
   AND compositor does NOT support `zwlr_output_power_management_v1`
-  WHEN user runs `powermon off`
+  WHEN user runs `dpms off`
   THEN stderr shows "Compositor does not support power management protocol"
   AND command exits with code 1
 
@@ -402,16 +402,16 @@ ______________________________________________________________________
 
 - GIVEN user is on TTY
   AND no daemon is running
-  WHEN user runs `powermon off`
+  WHEN user runs `dpms off`
   THEN daemon process is forked
   AND daemon opens seat and DRM device
   AND daemon disables CRTC
-  AND daemon writes PID to `/run/user/$UID/powermon.pid`
+  AND daemon writes PID to `/run/user/$UID/dpms.pid`
   AND parent exits with code 0
 
 - GIVEN daemon is running
   AND PID file exists
-  WHEN user runs `powermon on`
+  WHEN user runs `dpms on`
   THEN SIGTERM is sent to daemon
   AND daemon restores CRTC ACTIVE=1
   AND daemon removes PID file
@@ -419,17 +419,17 @@ ______________________________________________________________________
   AND command exits with code 0
 
 - GIVEN daemon is running
-  WHEN user runs `powermon off`
+  WHEN user runs `dpms off`
   THEN stderr shows "Display already off"
   AND command exits with code 0 (idempotent)
 
 - GIVEN no daemon is running
-  WHEN user runs `powermon on`
+  WHEN user runs `dpms on`
   THEN stderr shows "Display already on"
   AND command exits with code 0 (idempotent)
 
 - GIVEN stale PID file exists (process dead)
-  WHEN user runs `powermon off`
+  WHEN user runs `dpms off`
   THEN stale PID file is removed
   AND new daemon is spawned normally
 
@@ -489,14 +489,14 @@ ______________________________________________________________________
 
 **Acceptance Criteria**:
 
-- GIVEN `powermon.service` is enabled
+- GIVEN `dpms.service` is enabled
   AND system boots to multi-user.target
   WHEN boot sequence completes
-  THEN powermon daemon is running
+  THEN dpms daemon is running
   AND display is off
 
-- GIVEN `powermon.service` is active
-  WHEN user runs `systemctl stop powermon`
+- GIVEN `dpms.service` is active
+  WHEN user runs `systemctl stop dpms`
   THEN display turns on
   AND daemon exits cleanly
 
@@ -510,8 +510,8 @@ ______________________________________________________________________
 
 **Done Criteria**:
 
-- `powermon --help` shows usage
-- `powermon status` detects environment and prints detection result (stub)
+- `dpms --help` shows usage
+- `dpms status` detects environment and prints detection result (stub)
 - Invalid commands exit with code 2
 - Error messages go to stderr
 
@@ -525,10 +525,10 @@ ______________________________________________________________________
 
 **Done Criteria**:
 
-- `powermon off` turns off display in Wayland session
-- `powermon on` turns on display in Wayland session
-- `powermon status` reports correct state
-- `powermon status --json` returns valid JSON
+- `dpms off` turns off display in Wayland session
+- `dpms on` turns on display in Wayland session
+- `dpms status` reports correct state
+- `dpms status --json` returns valid JSON
 - Works without root privileges
 
 ______________________________________________________________________
@@ -541,9 +541,9 @@ ______________________________________________________________________
 
 **Done Criteria**:
 
-- `powermon off` turns off display on TTY
-- `powermon on` restores display on TTY
-- `powermon status` reports correct state based on daemon
+- `dpms off` turns off display on TTY
+- `dpms on` restores display on TTY
+- `dpms status` reports correct state based on daemon
 - Double off/on are idempotent
 - Stale PID files are handled
 - Works without root privileges (with logind session)
@@ -560,7 +560,7 @@ ______________________________________________________________________
 
 - All 17 acceptance criteria pass
 - Systemd service works at boot
-- `systemctl stop powermon` restores display
+- `systemctl stop dpms` restores display
 - Manual end-to-end testing complete
 
 ## Test Strategy
@@ -569,18 +569,18 @@ ______________________________________________________________________
 
 | Test | Feature | Input | Expected Output |
 |------|---------|-------|-----------------|
-| `test_parse_command_on` | F1 | `["powermon", "on"]` | `Command::On` |
-| `test_parse_command_off` | F1 | `["powermon", "off"]` | `Command::Off` |
-| `test_parse_command_status` | F1 | `["powermon", "status"]` | `Command::Status { json: false }` |
-| `test_parse_command_status_json` | F1 | `["powermon", "status", "--json"]` | `Command::Status { json: true }` |
-| `test_parse_invalid_command` | F1 | `["powermon", "foo"]` | Error, exit code 2 |
+| `test_parse_command_on` | F1 | `["dpms", "on"]` | `Command::On` |
+| `test_parse_command_off` | F1 | `["dpms", "off"]` | `Command::Off` |
+| `test_parse_command_status` | F1 | `["dpms", "status"]` | `Command::Status { json: false }` |
+| `test_parse_command_status_json` | F1 | `["dpms", "status", "--json"]` | `Command::Status { json: true }` |
+| `test_parse_invalid_command` | F1 | `["dpms", "foo"]` | Error, exit code 2 |
 | `test_format_status_text_on` | F3 | `PowerState::On, json=false` | `"Display: On\n"` |
 | `test_format_status_text_off` | F3 | `PowerState::Off, json=false` | `"Display: Off\n"` |
 | `test_format_status_json_on` | F3 | `PowerState::On, json=true` | `{"power":"on"}` |
 | `test_format_status_json_off` | F3 | `PowerState::Off, json=true` | `{"power":"off"}` |
 | `test_detect_wayland_env_set` | F4 | `WAYLAND_DISPLAY=wayland-0` | `Environment::Wayland` |
 | `test_detect_tty_no_wayland` | F4 | `WAYLAND_DISPLAY` unset | `Environment::Tty` |
-| `test_pid_file_path` | F8 | `XDG_RUNTIME_DIR=/run/user/1000` | `/run/user/1000/powermon.pid` |
+| `test_pid_file_path` | F8 | `XDG_RUNTIME_DIR=/run/user/1000` | `/run/user/1000/dpms.pid` |
 | `test_is_daemon_running_no_file` | F8 | PID file doesn't exist | `false` |
 | `test_is_daemon_running_stale` | F8 | PID file exists, process dead | `false`, file removed |
 
@@ -597,15 +597,15 @@ ______________________________________________________________________
 
 ### Manual Test Checklist
 
-- [ ] **TTY-001**: Boot to TTY, run `powermon off`, verify display off
-- [ ] **TTY-002**: Run `powermon on`, verify display restored
-- [ ] **TTY-003**: Run `powermon status`, verify "Display: Off" when off
+- [ ] **TTY-001**: Boot to TTY, run `dpms off`, verify display off
+- [ ] **TTY-002**: Run `dpms on`, verify display restored
+- [ ] **TTY-003**: Run `dpms status`, verify "Display: Off" when off
 - [ ] **TTY-004**: Kill daemon with `kill -9`, verify display comes back
-- [ ] **WAY-001**: In niri/sway, run `powermon off`, verify display off
+- [ ] **WAY-001**: In niri/sway, run `dpms off`, verify display off
 - [ ] **WAY-002**: Move mouse, verify display stays off
-- [ ] **WAY-003**: Run `powermon on`, verify display on
+- [ ] **WAY-003**: Run `dpms on`, verify display on
 - [ ] **SYS-001**: Enable service, reboot, verify display off at boot
-- [ ] **SYS-002**: Run `systemctl stop powermon`, verify display on
+- [ ] **SYS-002**: Run `systemctl stop dpms`, verify display on
 - [ ] **PERM-001**: Run as non-root user on TTY, verify success
 - [ ] **PERM-002**: Run as non-root user in Wayland, verify success
 
@@ -660,7 +660,7 @@ FUNCTION handle_tty_off() -> Result<(), Error>
 
     IF file_exists(pid_path) THEN
         pid = read_pid_file(pid_path)
-        IF process_is_running(pid) AND process_is_powermon(pid) THEN
+        IF process_is_running(pid) AND process_is_dpms(pid) THEN
             eprintln("Display already off")
             RETURN Ok(())
         ELSE
@@ -757,7 +757,7 @@ FUNCTION handle_tty_status() -> Result<PowerState, Error>
 
     IF file_exists(pid_path) THEN
         pid = read_pid_file(pid_path)
-        IF process_is_running(pid) AND process_is_powermon(pid) THEN
+        IF process_is_running(pid) AND process_is_dpms(pid) THEN
             RETURN PowerState::Off
         ELSE
             remove_file(pid_path)
@@ -845,18 +845,18 @@ END FUNCTION
 ## Systemd Service Unit
 
 ```ini
-# /etc/systemd/system/powermon.service
+# /etc/systemd/system/dpms.service
 [Unit]
 Description=Monitor Power Control
-Documentation=man:powermon(1)
+Documentation=man:dpms(1)
 After=systemd-logind.service
 Requires=systemd-logind.service
 
 [Service]
 Type=forking
-ExecStart=/usr/local/bin/powermon off
-ExecStop=/usr/local/bin/powermon on
-PIDFile=/run/user/%U/powermon.pid
+ExecStart=/usr/local/bin/dpms off
+ExecStop=/usr/local/bin/dpms on
+PIDFile=/run/user/%U/dpms.pid
 RemainAfterExit=yes
 Restart=no
 

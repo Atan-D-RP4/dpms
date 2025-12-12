@@ -46,11 +46,21 @@ fn execute_command<B: backend::PowerBackend>(
             print!("{}", status_output.format(json));
             Ok(())
         }
+        cli::Command::DaemonInternal => {
+            // This is handled in run() before reaching here
+            unreachable!("DaemonInternal should be handled before execute_command")
+        }
     }
 }
 
 /// Main application logic - dispatches commands to appropriate backend
 fn run(command: cli::Command) -> Result<(), error::Error> {
+    // Handle daemon-internal command immediately (no backend needed)
+    if matches!(command, cli::Command::DaemonInternal) {
+        // This never returns - it runs the daemon main loop and exits
+        daemon::daemon_main();
+    }
+
     // Detect which backend to use based on environment
     let backend_type = env::detect_backend()?;
 
@@ -94,7 +104,7 @@ mod tests {
             error::Error::UnsupportedEnvironment,
             error::Error::ProtocolNotSupported,
             error::Error::NoDisplayFound,
-            error::Error::DaemonStartFailed,
+            error::Error::DaemonStartFailed("test".to_string()),
             error::Error::DaemonStopTimeout,
         ];
 

@@ -27,9 +27,9 @@ pub trait PowerBackend {
     ///
     /// # Examples
     /// ```no_run
-    /// # use powermon::backend::PowerBackend;
-    /// # use powermon::output::PowerState;
-    /// # use powermon::error::Error;
+    /// # use dpms::backend::PowerBackend;
+    /// # use dpms::output::PowerState;
+    /// # use dpms::error::Error;
     /// # fn example(mut backend: impl PowerBackend) -> Result<(), Error> {
     /// // Turn display off
     /// backend.set_power(PowerState::Off)?;
@@ -50,9 +50,9 @@ pub trait PowerBackend {
     ///
     /// # Examples
     /// ```no_run
-    /// # use powermon::backend::PowerBackend;
-    /// # use powermon::output::PowerState;
-    /// # use powermon::error::Error;
+    /// # use dpms::backend::PowerBackend;
+    /// # use dpms::output::PowerState;
+    /// # use dpms::error::Error;
     /// # fn example(backend: impl PowerBackend) -> Result<(), Error> {
     /// let status = backend.get_power()?;
     /// match status {

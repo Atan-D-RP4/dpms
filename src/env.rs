@@ -68,16 +68,26 @@ mod tests {
     }
 
     #[test]
-    fn detect_tty_when_wayland_not_set_and_on_tty() {
-        // Ensure WAYLAND_DISPLAY is not set
+    fn detect_tty_when_wayland_and_x11_not_set_and_on_tty() {
+        // Ensure WAYLAND_DISPLAY and DISPLAY are not set
         // SAFETY: This is a test and we're the only ones modifying this env var
+        let old_display = std::env::var("DISPLAY").ok();
         unsafe {
             std::env::remove_var("WAYLAND_DISPLAY");
+            std::env::remove_var("DISPLAY");
         }
 
         let result = detect_backend();
 
-        // Note: This test will pass if we're on a TTY, or fail with NoSupportedEnvironment
+        // Restore DISPLAY if it was set
+        // SAFETY: This is a test and we're the only ones modifying this env var
+        unsafe {
+            if let Some(val) = old_display {
+                std::env::set_var("DISPLAY", val);
+            }
+        }
+
+        // Note: This test will pass if we're on a TTY, or fail with UnsupportedEnvironment
         // if we're not on a TTY (e.g., running in IDE or CI)
         // We test the logic, not the actual environment
         match result {

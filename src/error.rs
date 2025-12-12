@@ -1,12 +1,12 @@
 #![allow(clippy::enum_variant_names)]
-/// Exit codes for powermon CLI
+/// Exit codes for dpms CLI
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
     /// Operation completed successfully
     Success = 0,
     /// Runtime error occurred
     Error = 1,
-    /// Invalid command-line usage (reserved for clap, currently unused by powermon)
+    /// Invalid command-line usage (reserved for clap, currently unused by dpms)
     Usage = 2,
 }
 
@@ -22,7 +22,7 @@ impl From<ExitCode> for std::process::ExitCode {
     }
 }
 
-/// Error types for powermon
+/// Error types for dpms
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Neither Wayland nor TTY environment available")]
@@ -34,14 +34,11 @@ pub enum Error {
     #[error("No connected display found")]
     NoDisplayFound,
 
-    #[error("Daemon failed to start")]
-    DaemonStartFailed,
+    #[error("Daemon failed to start: {0}")]
+    DaemonStartFailed(String),
 
     #[error("Daemon did not stop within timeout period")]
     DaemonStopTimeout,
-
-    #[error("Fork failed: {0}")]
-    ForkError(String),
 
     #[error("Signal operation failed: {0}")]
     SignalError(String),
@@ -92,9 +89,8 @@ mod tests {
             Error::UnsupportedEnvironment,
             Error::ProtocolNotSupported,
             Error::NoDisplayFound,
-            Error::DaemonStartFailed,
+            Error::DaemonStartFailed("test".to_string()),
             Error::DaemonStopTimeout,
-            Error::ForkError("test".to_string()),
             Error::SignalError("test".to_string()),
             Error::PidFileError("test".to_string()),
             Error::DrmError("test".to_string()),
@@ -118,9 +114,8 @@ mod tests {
             Error::UnsupportedEnvironment,
             Error::ProtocolNotSupported,
             Error::NoDisplayFound,
-            Error::DaemonStartFailed,
+            Error::DaemonStartFailed("test".to_string()),
             Error::DaemonStopTimeout,
-            Error::ForkError("test".to_string()),
             Error::SignalError("test".to_string()),
             Error::PidFileError("test".to_string()),
             Error::DrmError("test".to_string()),

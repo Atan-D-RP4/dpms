@@ -1,6 +1,6 @@
 {
-  "project_name": "powermon",
-  "spec_path": "docs/projects/powermon/spec/powermon-spec.md",
+  "project_name": "dpms",
+  "spec_path": "docs/projects/dpms/spec/dpms-spec.md",
   "started": "2025-12-12T00:00:00Z",
   "current_phase": 4,
   "total_phases": 4,

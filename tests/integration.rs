@@ -1,35 +1,35 @@
-//! Integration tests for powermon CLI
+//! Integration tests for dpms CLI
 //!
 //! These tests verify CLI argument parsing and help output.
 //! For full power cycle tests, use the shell script: tests/test_power_cycle.sh
 
 use std::process::Command;
 
-/// Get the path to the powermon binary
-fn powermon_bin() -> std::path::PathBuf {
+/// Get the path to the dpms binary
+fn dpms_bin() -> std::path::PathBuf {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
     let mut path = std::path::PathBuf::from(manifest_dir);
     path.push("target");
 
     // Prefer release build
-    let release_path = path.join("release").join("powermon");
+    let release_path = path.join("release").join("dpms");
     if release_path.exists() {
         return release_path;
     }
 
     path.push("debug");
-    path.push("powermon");
+    path.push("dpms");
     path
 }
 
 #[test]
 fn test_help_command() {
-    let output = Command::new(powermon_bin())
+    let output = Command::new(dpms_bin())
         .arg("--help")
         .output()
-        .expect("Failed to execute powermon --help");
+        .expect("Failed to execute dpms --help");
 
-    assert!(output.status.success(), "powermon --help should succeed");
+    assert!(output.status.success(), "dpms --help should succeed");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -46,14 +46,14 @@ fn test_help_command() {
 
 #[test]
 fn test_status_subcommand_help() {
-    let output = Command::new(powermon_bin())
+    let output = Command::new(dpms_bin())
         .args(["status", "--help"])
         .output()
-        .expect("Failed to execute powermon status --help");
+        .expect("Failed to execute dpms status --help");
 
     assert!(
         output.status.success(),
-        "powermon status --help should succeed"
+        "dpms status --help should succeed"
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -65,12 +65,12 @@ fn test_status_subcommand_help() {
 
 #[test]
 fn test_on_subcommand_help() {
-    let output = Command::new(powermon_bin())
+    let output = Command::new(dpms_bin())
         .args(["on", "--help"])
         .output()
-        .expect("Failed to execute powermon on --help");
+        .expect("Failed to execute dpms on --help");
 
-    assert!(output.status.success(), "powermon on --help should succeed");
+    assert!(output.status.success(), "dpms on --help should succeed");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -81,14 +81,14 @@ fn test_on_subcommand_help() {
 
 #[test]
 fn test_off_subcommand_help() {
-    let output = Command::new(powermon_bin())
+    let output = Command::new(dpms_bin())
         .args(["off", "--help"])
         .output()
-        .expect("Failed to execute powermon off --help");
+        .expect("Failed to execute dpms off --help");
 
     assert!(
         output.status.success(),
-        "powermon off --help should succeed"
+        "dpms off --help should succeed"
     );
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -100,10 +100,10 @@ fn test_off_subcommand_help() {
 
 #[test]
 fn test_invalid_command_fails() {
-    let output = Command::new(powermon_bin())
+    let output = Command::new(dpms_bin())
         .arg("invalid")
         .output()
-        .expect("Failed to execute powermon invalid");
+        .expect("Failed to execute dpms invalid");
 
     assert!(!output.status.success(), "Invalid command should fail");
 }

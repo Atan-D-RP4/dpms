@@ -1,7 +1,7 @@
-# powermon Delivery Progress
+# dpms Delivery Progress
 
-**Project**: powermon  
-**Spec**: docs/projects/powermon/spec/powermon-spec.md  
+**Project**: dpms  
+**Spec**: docs/projects/dpms/spec/dpms-spec.md  
 **Started**: 2025-12-12  
 **Current Phase**: 4 / 4
 
@@ -14,8 +14,8 @@
 **Features**: F1, F2, F3, F4, F5
 
 **Done Criteria**:
-- `powermon --help` shows usage
-- `powermon status` detects environment and prints detection result (stub)
+- `dpms --help` shows usage
+- `dpms status` detects environment and prints detection result (stub)
 - Invalid commands exit with code 2
 - Error messages go to stderr
 
@@ -55,10 +55,10 @@
 **Features**: F6
 
 **Done Criteria**:
-- `powermon off` turns off display in Wayland session
-- `powermon on` turns on display in Wayland session
-- `powermon status` reports correct state
-- `powermon status --json` returns valid JSON
+- `dpms off` turns off display in Wayland session
+- `dpms on` turns on display in Wayland session
+- `dpms status` reports correct state
+- `dpms status --json` returns valid JSON
 - Works without root privileges
 
 ### Features
@@ -77,9 +77,9 @@
 **Features**: F7, F8, F9
 
 **Done Criteria**:
-- `powermon off` turns off display on TTY
-- `powermon on` restores display on TTY
-- `powermon status` reports correct state based on daemon
+- `dpms off` turns off display on TTY
+- `dpms on` restores display on TTY
+- `dpms status` reports correct state based on daemon
 - Double off/on are idempotent
 - Stale PID files are handled
 - Works without root privileges (with logind session)
@@ -112,7 +112,7 @@
 **Done Criteria**:
 - All 17 acceptance criteria pass
 - Systemd service works at boot
-- `systemctl stop powermon` restores display
+- `systemctl stop dpms` restores display
 - Manual end-to-end testing complete
 
 ### Features

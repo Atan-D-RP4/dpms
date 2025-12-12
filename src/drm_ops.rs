@@ -102,9 +102,9 @@ impl std::fmt::Debug for SeatHolder {
 ///
 /// # Example
 /// ```no_run
-/// # use powermon::drm_ops::open_drm_with_libseat;
+/// # use dpms::drm_ops::open_drm_with_libseat;
 /// let (seat, drm) = open_drm_with_libseat()?;
-/// # Ok::<(), powermon::error::Error>(())
+/// # Ok::<(), dpms::error::Error>(())
 /// ```
 pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
     use std::sync::{Arc, Mutex};
@@ -240,10 +240,10 @@ impl DrmDevice {
     ///
     /// # Example
     /// ```no_run
-    /// # use powermon::drm_ops::open_drm_with_libseat;
+    /// # use dpms::drm_ops::open_drm_with_libseat;
     /// # let (_seat, drm) = open_drm_with_libseat()?;
     /// let crtc = drm.find_active_crtc()?;
-    /// # Ok::<(), powermon::error::Error>(())
+    /// # Ok::<(), dpms::error::Error>(())
     /// ```
     pub fn find_active_crtc(&self) -> Result<crtc::Handle, Error> {
         // Get resource handles
@@ -300,14 +300,14 @@ impl DrmDevice {
     ///
     /// # Example
     /// ```no_run
-    /// # use powermon::drm_ops::open_drm_with_libseat;
+    /// # use dpms::drm_ops::open_drm_with_libseat;
     /// # let (_seat, drm) = open_drm_with_libseat()?;
     /// # let crtc = drm.find_active_crtc()?;
     /// // Turn display off
     /// drm.set_crtc_active(crtc, false)?;
     /// // Turn display on
     /// drm.set_crtc_active(crtc, true)?;
-    /// # Ok::<(), powermon::error::Error>(())
+    /// # Ok::<(), dpms::error::Error>(())
     /// ```
     pub fn set_crtc_active(&self, crtc_handle: crtc::Handle, active: bool) -> Result<(), Error> {
         // Get properties as a hashmap for cleaner lookup

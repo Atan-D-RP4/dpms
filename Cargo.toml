@@ -1,5 +1,5 @@
 [package]
-name = "powermon"
+name = "dpms"
 version = "0.1.0"
 edition = "2024"
 
@@ -21,3 +21,5 @@ wayland-protocols-wlr = { version = "0.3", default-features = false, features = 
 # TTY backend dependencies
 libseat = { version = "0.2", default-features = false }
 drm = { version = "0.14", default-features = false }
+nix = { version = "0.29", default-features = false, features = ["signal", "process", "fs", "user"] }
+signal-hook = { version = "0.3", default-features = false }
