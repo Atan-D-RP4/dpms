@@ -34,8 +34,12 @@ enum Commands {
 /// Parse command-line arguments and return the Command
 pub fn parse() -> Command {
     let cli = Cli::parse();
+    command_from_commands(cli.command)
+}
 
-    match cli.command {
+/// Convert internal Commands enum to public Command enum
+fn command_from_commands(cmd: Commands) -> Command {
+    match cmd {
         Commands::On => Command::On,
         Commands::Off => Command::Off,
         Commands::Status { json } => Command::Status { json },
@@ -49,33 +53,21 @@ mod tests {
     #[test]
     fn parse_command_on() {
         let cli = Cli::try_parse_from(["powermon", "on"]).unwrap();
-        let command = match cli.command {
-            Commands::On => Command::On,
-            Commands::Off => Command::Off,
-            Commands::Status { json } => Command::Status { json },
-        };
+        let command = command_from_commands(cli.command);
         assert!(matches!(command, Command::On));
     }
 
     #[test]
     fn parse_command_off() {
         let cli = Cli::try_parse_from(["powermon", "off"]).unwrap();
-        let command = match cli.command {
-            Commands::On => Command::On,
-            Commands::Off => Command::Off,
-            Commands::Status { json } => Command::Status { json },
-        };
+        let command = command_from_commands(cli.command);
         assert!(matches!(command, Command::Off));
     }
 
     #[test]
     fn parse_command_status() {
         let cli = Cli::try_parse_from(["powermon", "status"]).unwrap();
-        let command = match cli.command {
-            Commands::On => Command::On,
-            Commands::Off => Command::Off,
-            Commands::Status { json } => Command::Status { json },
-        };
+        let command = command_from_commands(cli.command);
         if let Command::Status { json } = command {
             assert!(!json, "Expected json to be false");
         } else {
@@ -86,11 +78,7 @@ mod tests {
     #[test]
     fn parse_command_status_json() {
         let cli = Cli::try_parse_from(["powermon", "status", "--json"]).unwrap();
-        let command = match cli.command {
-            Commands::On => Command::On,
-            Commands::Off => Command::Off,
-            Commands::Status { json } => Command::Status { json },
-        };
+        let command = command_from_commands(cli.command);
         if let Command::Status { json } = command {
             assert!(json, "Expected json to be true");
         } else {

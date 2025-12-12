@@ -9,6 +9,9 @@ use drm::control::{AtomicCommitFlags, Device as ControlDevice, atomic, connector
 use std::fs::File;
 use std::os::fd::{AsFd, BorrowedFd};
 
+/// Common DRM device paths to try when opening a device
+const DRM_DEVICE_PATHS: [&str; 3] = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"];
+
 /// Wrapper around DRM device
 ///
 /// Implements the `drm::Device` trait to enable DRM operations.
@@ -88,9 +91,7 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
         .map_err(|e| Error::SeatError(format!("Failed to dispatch seat events: {:?}", e)))?;
 
     // Find first DRM device by trying common paths
-    let drm_paths = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"];
-
-    for path in &drm_paths {
+    for path in &DRM_DEVICE_PATHS {
         // libseat opens the device and grants us DRM master privileges
         // We MUST use the fd returned by libseat, not open a new one
         match seat.open_device(path) {
@@ -117,7 +118,7 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
     }
 
     Err(Error::SeatError(
-        "No DRM device found at /dev/dri/card[0-2]".to_string(),
+        "No DRM device found in standard paths".to_string(),
     ))
 }
 
@@ -131,9 +132,9 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
 /// - `Ok((SeatHolder::None, DrmDevice))` - The opened DRM device
 /// - `Err(Error::DrmError)` - Failed to open device
 pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
-    let drm_paths = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"];
+    let mut last_error: Option<String> = None;
 
-    for path in &drm_paths {
+    for path in &DRM_DEVICE_PATHS {
         match File::open(path) {
             Ok(file) => {
                 let drm_device = DrmDevice {
@@ -141,22 +142,25 @@ pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
                 };
 
                 // Set DRM client capabilities for atomic modesetting
-                if drm_device
-                    .set_client_capability(drm::ClientCapability::Atomic, true)
-                    .is_err()
+                if let Err(e) =
+                    drm_device.set_client_capability(drm::ClientCapability::Atomic, true)
                 {
                     // This device doesn't support atomic, try next
+                    last_error = Some(format!("{}: atomic not supported ({:?})", path, e));
                     continue;
                 }
 
                 return Ok((SeatHolder::None, drm_device));
             }
-            Err(_) => continue,
+            Err(e) => {
+                last_error = Some(format!("{}: {}", path, e));
+                continue;
+            }
         }
     }
 
     Err(Error::DrmError(
-        "No DRM device found at /dev/dri/card[0-2]".to_string(),
+        last_error.unwrap_or_else(|| "No DRM device found".to_string()),
     ))
 }
 
@@ -231,7 +235,7 @@ impl DrmDevice {
             }
         }
 
-        Err(Error::NoConnectedDisplay)
+        Err(Error::NoDisplayFound)
     }
 
     /// Set CRTC ACTIVE property via atomic commit

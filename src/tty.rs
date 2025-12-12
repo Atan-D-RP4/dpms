@@ -9,6 +9,7 @@
 /// - When turning display on: signals daemon to restore and exit
 /// - When querying status: checks if daemon is running
 use crate::backend::PowerBackend;
+use crate::daemon;
 use crate::error::Error;
 use crate::output::PowerState;
 
@@ -46,27 +47,25 @@ impl PowerBackend for TtyBackend {
         match state {
             PowerState::Off => {
                 // Check if daemon is already running
-                if is_daemon_running().is_some() {
+                if daemon::is_daemon_running().is_some() {
                     // Already off, idempotent operation
                     eprintln!("Display already off");
                     return Ok(());
                 }
 
                 // Start daemon - it will turn off the display
-                start_daemon()?;
-                Ok(())
+                daemon::start_daemon()
             }
             PowerState::On => {
                 // Check if daemon is running
-                if is_daemon_running().is_none() {
+                if daemon::is_daemon_running().is_none() {
                     // Already on, idempotent operation
                     eprintln!("Display already on");
                     return Ok(());
                 }
 
                 // Signal daemon to restore display and exit
-                signal_daemon(true)?;
-                Ok(())
+                daemon::stop_daemon()
             }
         }
     }
@@ -75,59 +74,11 @@ impl PowerBackend for TtyBackend {
         // Query daemon running state
         // If daemon is running, display is off
         // If daemon is not running, display is on
-        match is_daemon_running() {
+        match daemon::is_daemon_running() {
             Some(_pid) => Ok(PowerState::Off),
             None => Ok(PowerState::On),
         }
     }
-}
-
-// ============================================================================
-// Daemon coordination functions
-// ============================================================================
-// These functions delegate to the daemon module (F8).
-
-/// Check if the powermon daemon is currently running
-///
-/// Returns the PID of the running daemon, or None if no daemon is running.
-/// Also cleans up stale PID files if the process is no longer alive.
-fn is_daemon_running() -> Option<nix::unistd::Pid> {
-    crate::daemon::is_daemon_running()
-}
-
-/// Start the powermon daemon
-///
-/// Forks a new daemon process that:
-/// 1. Opens a libseat session
-/// 2. Opens DRM device
-/// 3. Disables CRTC (turns off display)
-/// 4. Writes PID file
-/// 5. Waits for SIGTERM/SIGINT to restore and exit
-///
-/// The parent process returns immediately after verifying the daemon started.
-///
-/// # Returns
-/// - `Ok(())` - Daemon started successfully
-/// - `Err(Error::DaemonStartFailed)` - Daemon failed to start
-fn start_daemon() -> Result<(), Error> {
-    crate::daemon::start_daemon()
-}
-
-/// Signal the daemon to restore display and exit
-///
-/// Sends SIGTERM to the daemon process, which triggers it to:
-/// 1. Restore CRTC ACTIVE property to 1 (turn display back on)
-/// 2. Remove PID file
-/// 3. Exit cleanly
-///
-/// # Parameters
-/// - `_on`: true to turn display on (send SIGTERM), false is unused
-///
-/// # Returns
-/// - `Ok(())` - Signal sent and daemon stopped successfully
-/// - `Err(Error::DaemonStopTimeout)` - Daemon didn't stop within timeout
-fn signal_daemon(_on: bool) -> Result<(), Error> {
-    crate::daemon::stop_daemon()
 }
 
 #[cfg(test)]

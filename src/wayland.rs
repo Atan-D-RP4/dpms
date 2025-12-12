@@ -33,6 +33,12 @@ struct WaylandState {
     failed: bool,
 }
 
+/// Minimal state for querying power mode (avoids cloning full WaylandState)
+#[derive(Default)]
+struct QueryState {
+    current_mode: Option<zwlr_output_power_v1::Mode>,
+}
+
 impl WaylandBackend {
     /// Create a new Wayland backend by connecting to the compositor
     ///
@@ -62,22 +68,18 @@ impl WaylandBackend {
             failed: false,
         };
 
-        // Bind to output (get first output)
-        state.output = globals
-            .bind::<wl_output::WlOutput, _, _>(&qh, 1..=4, ())
-            .ok();
-
-        // Bind to power manager
+        // Bind to power manager (required)
         state.power_manager = globals
             .bind::<zwlr_output_power_manager_v1::ZwlrOutputPowerManagerV1, _, _>(&qh, 1..=1, ())
             .ok();
-
-        // Check if power manager is available
         if state.power_manager.is_none() {
             return Err(Error::ProtocolNotSupported);
         }
 
-        // Check if output is available
+        // Bind to output (required)
+        state.output = globals
+            .bind::<wl_output::WlOutput, _, _>(&qh, 1..=4, ())
+            .ok();
         if state.output.is_none() {
             return Err(Error::NoDisplayFound);
         }
@@ -148,13 +150,8 @@ impl PowerBackend for WaylandBackend {
         // Create power control object for this output
         let power_control = power_manager.get_output_power(output, &qh, ());
 
-        // Create temporary state for this query
-        let mut query_state = WaylandState {
-            power_manager: self.state.power_manager.clone(),
-            output: self.state.output.clone(),
-            current_mode: None,
-            failed: false,
-        };
+        // Create minimal query state - only need to track mode
+        let mut query_state = QueryState::default();
 
         // Roundtrip to receive mode event
         event_queue
@@ -240,6 +237,64 @@ impl Dispatch<zwlr_output_power_v1::ZwlrOutputPowerV1, ()> for WaylandState {
                 state.failed = true;
             }
             _ => {}
+        }
+    }
+}
+
+// Implement Dispatch for QueryState (minimal state for get_power queries)
+impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for QueryState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &wl_registry::WlRegistry,
+        _event: wl_registry::Event,
+        _data: &GlobalListContents,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        // Not used for queries
+    }
+}
+
+impl Dispatch<wl_output::WlOutput, ()> for QueryState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &wl_output::WlOutput,
+        _event: wl_output::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        // Not used for queries
+    }
+}
+
+impl Dispatch<zwlr_output_power_manager_v1::ZwlrOutputPowerManagerV1, ()> for QueryState {
+    fn event(
+        _state: &mut Self,
+        _proxy: &zwlr_output_power_manager_v1::ZwlrOutputPowerManagerV1,
+        _event: zwlr_output_power_manager_v1::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        // Not used for queries
+    }
+}
+
+impl Dispatch<zwlr_output_power_v1::ZwlrOutputPowerV1, ()> for QueryState {
+    fn event(
+        state: &mut Self,
+        _proxy: &zwlr_output_power_v1::ZwlrOutputPowerV1,
+        event: zwlr_output_power_v1::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        if let zwlr_output_power_v1::Event::Mode {
+            mode: WEnum::Value(m),
+        } = event
+        {
+            state.current_mode = Some(m);
         }
     }
 }

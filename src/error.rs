@@ -1,9 +1,12 @@
 #![allow(clippy::enum_variant_names)]
-/// Exit codes
+/// Exit codes for powermon CLI
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
+    /// Operation completed successfully
     Success = 0,
+    /// Runtime error occurred
     Error = 1,
+    /// Invalid command-line usage (reserved for clap, currently unused by powermon)
     Usage = 2,
 }
 
@@ -52,9 +55,6 @@ pub enum Error {
     #[error("libseat operation failed: {0}")]
     SeatError(String),
 
-    #[error("No connected display found")]
-    NoConnectedDisplay,
-
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -99,7 +99,6 @@ mod tests {
             Error::PidFileError("test".to_string()),
             Error::DrmError("test".to_string()),
             Error::SeatError("test".to_string()),
-            Error::NoConnectedDisplay,
             Error::Io(std::io::Error::other("test")),
         ];
 
@@ -126,7 +125,6 @@ mod tests {
             Error::PidFileError("test".to_string()),
             Error::DrmError("test".to_string()),
             Error::SeatError("test".to_string()),
-            Error::NoConnectedDisplay,
             Error::Io(std::io::Error::other("test")),
         ];
 
