@@ -13,7 +13,7 @@ use std::process::ExitCode as StdExitCode;
 fn main() -> StdExitCode {
     // Parse CLI arguments - clap handles usage errors and exits with code 2 (default clap behavior)
     let command = cli::parse();
-    
+
     // Run the main logic
     match run(command) {
         Ok(()) => error::ExitCode::Success.into(),
@@ -30,7 +30,7 @@ fn main() -> StdExitCode {
 fn run(command: cli::Command) -> Result<(), error::Error> {
     // Detect which backend to use based on environment
     let backend_type = env::detect_backend()?;
-    
+
     // Create appropriate backend and execute command
     match backend_type {
         env::Backend::Wayland => {
@@ -72,7 +72,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_error_converts_to_exit_code_1() {
+    fn error_converts_to_exit_code_1() {
         let error = error::Error::UnsupportedEnvironment;
         let exit_code = error.exit_code();
         assert_eq!(exit_code, error::ExitCode::Error);
@@ -80,14 +80,14 @@ mod tests {
     }
 
     #[test]
-    fn test_error_has_message() {
+    fn error_has_message() {
         let error = error::Error::ProtocolNotSupported;
         let message = error.to_string();
         assert!(message.contains("protocol"));
     }
 
     #[test]
-    fn test_all_error_variants_map_to_exit_code_1() {
+    fn all_error_variants_map_to_exit_code_1() {
         // Verify all error types return exit code 1 (Error)
         let errors = vec![
             error::Error::UnsupportedEnvironment,
@@ -98,7 +98,12 @@ mod tests {
         ];
 
         for err in errors {
-            assert_eq!(err.exit_code() as i32, 1, "Error {:?} should exit with code 1", err);
+            assert_eq!(
+                err.exit_code() as i32,
+                1,
+                "Error {:?} should exit with code 1",
+                err
+            );
         }
     }
 }

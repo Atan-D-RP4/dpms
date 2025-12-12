@@ -3,12 +3,9 @@
 /// This module provides low-level DRM atomic modesetting operations to control
 /// display power state via CRTC ACTIVE property. Uses libseat for device access
 /// without requiring root privileges.
-
 use crate::error::Error;
-use drm::control::{
-    atomic, connector, crtc, property, AtomicCommitFlags, Device as ControlDevice,
-};
 use drm::Device;
+use drm::control::{AtomicCommitFlags, Device as ControlDevice, atomic, connector, crtc, property};
 use libseat::Seat;
 use std::fs::File;
 use std::os::fd::{AsFd, BorrowedFd};
@@ -65,11 +62,7 @@ pub fn open_drm_with_libseat() -> Result<(Seat, DrmDevice), Error> {
         .map_err(|e| Error::SeatError(format!("Failed to dispatch seat events: {:?}", e)))?;
 
     // Find first DRM device by trying common paths
-    let drm_paths = [
-        "/dev/dri/card0",
-        "/dev/dri/card1",
-        "/dev/dri/card2",
-    ];
+    let drm_paths = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"];
 
     for path in &drm_paths {
         // libseat needs to open the device to grant us permission
@@ -77,17 +70,23 @@ pub fn open_drm_with_libseat() -> Result<(Seat, DrmDevice), Error> {
         match seat.open_device(path) {
             Ok(_device) => {
                 // Now open the device ourselves to get a File handle
-                let file = File::open(path)
-                    .map_err(|e| Error::SeatError(format!("Failed to open DRM device {}: {}", path, e)))?;
-                
+                let file = File::open(path).map_err(|e| {
+                    Error::SeatError(format!("Failed to open DRM device {}: {}", path, e))
+                })?;
+
                 // Create DRM device from file
                 let drm_device = DrmDevice { fd: file };
-                
+
                 // Set DRM client capabilities for atomic modesetting
-                if let Err(e) = drm_device.set_client_capability(drm::ClientCapability::Atomic, true) {
-                    return Err(Error::DrmError(format!("Failed to set atomic capability: {:?}", e)));
+                if let Err(e) =
+                    drm_device.set_client_capability(drm::ClientCapability::Atomic, true)
+                {
+                    return Err(Error::DrmError(format!(
+                        "Failed to set atomic capability: {:?}",
+                        e
+                    )));
                 }
-                
+
                 return Ok((seat, drm_device));
             }
             Err(_) => continue,
@@ -132,9 +131,9 @@ impl DrmDevice {
             if conn_info.state() == connector::State::Connected {
                 // Get the encoder for this connector
                 if let Some(encoder_handle) = conn_info.current_encoder() {
-                    let encoder_info = self
-                        .get_encoder(encoder_handle)
-                        .map_err(|e| Error::DrmError(format!("Failed to get encoder info: {:?}", e)))?;
+                    let encoder_info = self.get_encoder(encoder_handle).map_err(|e| {
+                        Error::DrmError(format!("Failed to get encoder info: {:?}", e))
+                    })?;
 
                     if let Some(crtc_handle) = encoder_info.crtc() {
                         return Ok(crtc_handle);
@@ -143,10 +142,10 @@ impl DrmDevice {
 
                 // If no current encoder, try the first possible encoder
                 for &enc_handle in conn_info.encoders() {
-                    let encoder_info = self
-                        .get_encoder(enc_handle)
-                        .map_err(|e| Error::DrmError(format!("Failed to get encoder info: {:?}", e)))?;
-                    
+                    let encoder_info = self.get_encoder(enc_handle).map_err(|e| {
+                        Error::DrmError(format!("Failed to get encoder info: {:?}", e))
+                    })?;
+
                     if let Some(crtc_handle) = encoder_info.crtc() {
                         return Ok(crtc_handle);
                     }
@@ -204,11 +203,7 @@ impl DrmDevice {
 
         // Create atomic request
         let mut req = atomic::AtomicModeReq::new();
-        req.add_property(
-            crtc_handle,
-            active_prop,
-            property::Value::Boolean(active),
-        );
+        req.add_property(crtc_handle, active_prop, property::Value::Boolean(active));
 
         // Commit with ALLOW_MODESET flag (required for ACTIVE property changes)
         let flags = AtomicCommitFlags::ALLOW_MODESET;
@@ -224,11 +219,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_drm_device_implements_required_traits() {
+    fn drm_device_implements_required_traits() {
         // This is a compile-time test - if it compiles, the traits are implemented
         fn assert_device<T: Device>() {}
         fn assert_control_device<T: ControlDevice>() {}
-        
+
         assert_device::<DrmDevice>();
         assert_control_device::<DrmDevice>();
     }

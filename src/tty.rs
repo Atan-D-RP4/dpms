@@ -8,7 +8,6 @@
 /// - When turning display off: spawns daemon if not running
 /// - When turning display on: signals daemon to restore and exit
 /// - When querying status: checks if daemon is running
-
 use crate::backend::PowerBackend;
 use crate::error::Error;
 use crate::output::PowerState;
@@ -37,7 +36,7 @@ impl TtyBackend {
         // This ensures we fail fast if permissions are wrong
         // But we don't keep the connection open (daemon will open its own)
         crate::drm_ops::open_drm_with_libseat()?;
-        
+
         Ok(TtyBackend)
     }
 }
@@ -52,7 +51,7 @@ impl PowerBackend for TtyBackend {
                     eprintln!("Display already off");
                     return Ok(());
                 }
-                
+
                 // Start daemon - it will turn off the display
                 start_daemon()?;
                 Ok(())
@@ -64,7 +63,7 @@ impl PowerBackend for TtyBackend {
                     eprintln!("Display already on");
                     return Ok(());
                 }
-                
+
                 // Signal daemon to restore display and exit
                 signal_daemon(true)?;
                 Ok(())
@@ -136,17 +135,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_tty_backend_implements_power_backend() {
+    fn tty_backend_implements_power_backend() {
         // Compile-time check that TtyBackend implements PowerBackend
         fn assert_power_backend<T: PowerBackend>() {}
         assert_power_backend::<TtyBackend>();
     }
 
     #[test]
-    fn test_get_power_when_daemon_not_running() {
+    fn get_power_when_daemon_not_running() {
         let backend = TtyBackend;
         let result = backend.get_power();
-        
+
         // When daemon is not running (stub returns None), display should be On
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), PowerState::On);

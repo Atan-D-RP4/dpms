@@ -34,7 +34,7 @@ enum Commands {
 /// Parse command-line arguments and return the Command
 pub fn parse() -> Command {
     let cli = Cli::parse();
-    
+
     match cli.command {
         Commands::On => Command::On,
         Commands::Off => Command::Off,
@@ -47,7 +47,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_command_on() {
+    fn parse_command_on() {
         let cli = Cli::try_parse_from(["powermon", "on"]).unwrap();
         let command = match cli.command {
             Commands::On => Command::On,
@@ -58,7 +58,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_command_off() {
+    fn parse_command_off() {
         let cli = Cli::try_parse_from(["powermon", "off"]).unwrap();
         let command = match cli.command {
             Commands::On => Command::On,
@@ -69,7 +69,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_command_status() {
+    fn parse_command_status() {
         let cli = Cli::try_parse_from(["powermon", "status"]).unwrap();
         let command = match cli.command {
             Commands::On => Command::On,
@@ -84,7 +84,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_command_status_json() {
+    fn parse_command_status_json() {
         let cli = Cli::try_parse_from(["powermon", "status", "--json"]).unwrap();
         let command = match cli.command {
             Commands::On => Command::On,
@@ -99,18 +99,21 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_invalid_command() {
+    fn parse_invalid_command() {
         let result = Cli::try_parse_from(["powermon", "foo"]);
-        assert!(result.is_err(), "Expected parsing to fail for invalid command");
+        assert!(
+            result.is_err(),
+            "Expected parsing to fail for invalid command"
+        );
     }
 
     #[test]
-    fn test_usage_error_exit_code() {
+    fn usage_error_exit_code() {
         // Verify clap errors for invalid commands return exit code 2
         // This tests AC2: usage errors exit with code 2
         let result = Cli::try_parse_from(["powermon", "invalid"]);
         assert!(result.is_err());
-        
+
         let err = result.unwrap_err();
         // Clap errors have an exit method that returns the exit code
         // For usage/validation errors, clap returns exit code 2

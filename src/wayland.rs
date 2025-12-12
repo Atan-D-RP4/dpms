@@ -6,15 +6,14 @@
 /// The backend connects to the Wayland display socket, binds to the necessary
 /// global objects, and uses the power management protocol to send power state
 /// commands to the compositor.
-
 use crate::backend::PowerBackend;
 use crate::error::Error;
 use crate::output::PowerState;
 
 use wayland_client::{
-    protocol::{wl_output, wl_registry},
     Connection, Dispatch, QueueHandle, WEnum,
-    globals::{registry_queue_init, GlobalListContents},
+    globals::{GlobalListContents, registry_queue_init},
+    protocol::{wl_output, wl_registry},
 };
 use wayland_protocols_wlr::output_power_management::v1::client::{
     zwlr_output_power_manager_v1, zwlr_output_power_v1,
@@ -50,8 +49,8 @@ impl WaylandBackend {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::NotConnected, e))?;
 
         // Initialize registry and get globals
-        let (globals, mut event_queue) = registry_queue_init(&connection)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        let (globals, mut event_queue) =
+            registry_queue_init(&connection).map_err(std::io::Error::other)?;
 
         let qh = event_queue.handle();
 
@@ -86,7 +85,7 @@ impl WaylandBackend {
         // Flush initial requests
         event_queue
             .roundtrip(&mut state)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
 
         Ok(Self { connection, state })
     }
@@ -98,10 +97,12 @@ impl PowerBackend for WaylandBackend {
         let qh = event_queue.handle();
 
         // Get power manager and output
-        let power_manager = self.state.power_manager.as_ref()
+        let power_manager = self
+            .state
+            .power_manager
+            .as_ref()
             .ok_or(Error::ProtocolNotSupported)?;
-        let output = self.state.output.as_ref()
-            .ok_or(Error::NoDisplayFound)?;
+        let output = self.state.output.as_ref().ok_or(Error::NoDisplayFound)?;
 
         // Create power control object for this output
         let power_control = power_manager.get_output_power(output, &qh, ());
@@ -121,7 +122,7 @@ impl PowerBackend for WaylandBackend {
         // Flush and wait for compositor to process
         event_queue
             .roundtrip(&mut self.state)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
 
         // Check if operation failed
         if self.state.failed {
@@ -137,10 +138,12 @@ impl PowerBackend for WaylandBackend {
         let qh = event_queue.handle();
 
         // Get power manager and output
-        let power_manager = self.state.power_manager.as_ref()
+        let power_manager = self
+            .state
+            .power_manager
+            .as_ref()
             .ok_or(Error::ProtocolNotSupported)?;
-        let output = self.state.output.as_ref()
-            .ok_or(Error::NoDisplayFound)?;
+        let output = self.state.output.as_ref().ok_or(Error::NoDisplayFound)?;
 
         // Create power control object for this output
         let power_control = power_manager.get_output_power(output, &qh, ());
@@ -156,7 +159,7 @@ impl PowerBackend for WaylandBackend {
         // Roundtrip to receive mode event
         event_queue
             .roundtrip(&mut query_state)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
 
         // Destroy the power control object
         power_control.destroy();
@@ -226,11 +229,9 @@ impl Dispatch<zwlr_output_power_v1::ZwlrOutputPowerV1, ()> for WaylandState {
         _qh: &QueueHandle<Self>,
     ) {
         match event {
-            zwlr_output_power_v1::Event::Mode { mode } => {
+            zwlr_output_power_v1::Event::Mode { mode: WEnum::Value(m) } => {
                 // Store the current mode, extracting from WEnum wrapper
-                if let WEnum::Value(m) = mode {
-                    state.current_mode = Some(m);
-                }
+                state.current_mode = Some(m);
             }
             zwlr_output_power_v1::Event::Failed => {
                 // Operation failed

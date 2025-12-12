@@ -6,11 +6,10 @@
 ///
 /// The daemon uses a PID file at `/run/user/$UID/powermon.pid` for single-instance
 /// enforcement and IPC coordination.
-
 use crate::drm_ops::open_drm_with_libseat;
 use crate::error::Error;
 use nix::sys::signal::{self, Signal};
-use nix::unistd::{fork, setsid, ForkResult, Pid};
+use nix::unistd::{ForkResult, Pid, fork, setsid};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -310,11 +309,10 @@ pub fn start_daemon() -> Result<(), Error> {
             let pid_path = get_pid_file_path()?;
             if pid_path.exists() {
                 // Verify the PID in the file is actually the child we forked
-                if let Ok(Some(pid)) = read_pid_file(&pid_path) {
-                    if pid == child {
+                if let Ok(Some(pid)) = read_pid_file(&pid_path)
+                    && pid == child {
                         return Ok(());
                     }
-                }
             }
 
             Err(Error::DaemonStartFailed)
@@ -393,27 +391,27 @@ mod tests {
     }
 
     #[test]
-    fn test_is_process_running_self() {
+    fn is_process_running_self() {
         // Test with our own PID (which is definitely running)
         let pid = Pid::this();
         assert!(is_process_running(pid));
     }
 
     #[test]
-    fn test_is_process_running_nonexistent() {
+    fn is_process_running_nonexistent() {
         // Test with a PID that definitely doesn't exist (PID_MAX is typically 32768)
         let pid = Pid::from_raw(99999);
         assert!(!is_process_running(pid));
     }
 
     #[test]
-    fn test_read_pid_file_nonexistent() {
+    fn read_pid_file_nonexistent() {
         let result = read_pid_file("/tmp/powermon-test-nonexistent.pid").unwrap();
         assert!(result.is_none());
     }
 
     #[test]
-    fn test_write_and_read_pid_file() {
+    fn write_and_read_pid_file() {
         let test_path = "/tmp/powermon-test-write-read.pid";
         let test_pid = Pid::from_raw(12345);
 
@@ -449,7 +447,7 @@ mod tests {
     }
 
     #[test]
-    fn test_is_daemon_running_no_pid_file() {
+    fn is_daemon_running_no_pid_file() {
         // When no PID file exists, should return None
         // This assumes no actual daemon is running
         unsafe {

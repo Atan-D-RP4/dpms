@@ -1,3 +1,4 @@
+#![allow(clippy::enum_variant_names)]
 /// Exit codes
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExitCode {
@@ -72,21 +73,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_exit_code_values() {
+    fn exit_code_values() {
         assert_eq!(ExitCode::Success as i32, 0);
         assert_eq!(ExitCode::Error as i32, 1);
         assert_eq!(ExitCode::Usage as i32, 2);
     }
 
     #[test]
-    fn test_exit_code_from_conversion() {
+    fn exit_code_from_conversion() {
         assert_eq!(i32::from(ExitCode::Success), 0);
         assert_eq!(i32::from(ExitCode::Error), 1);
         assert_eq!(i32::from(ExitCode::Usage), 2);
     }
 
     #[test]
-    fn test_all_errors_return_error_exit_code() {
+    fn all_errors_return_error_exit_code() {
         let errors = [
             Error::UnsupportedEnvironment,
             Error::ProtocolNotSupported,
@@ -99,7 +100,7 @@ mod tests {
             Error::DrmError("test".to_string()),
             Error::SeatError("test".to_string()),
             Error::NoConnectedDisplay,
-            Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "test")),
+            Error::Io(std::io::Error::other("test")),
         ];
 
         for error in errors {
@@ -113,7 +114,7 @@ mod tests {
     }
 
     #[test]
-    fn test_error_messages_are_non_empty() {
+    fn error_messages_are_non_empty() {
         let errors = [
             Error::UnsupportedEnvironment,
             Error::ProtocolNotSupported,
@@ -126,7 +127,7 @@ mod tests {
             Error::DrmError("test".to_string()),
             Error::SeatError("test".to_string()),
             Error::NoConnectedDisplay,
-            Error::Io(std::io::Error::new(std::io::ErrorKind::Other, "test")),
+            Error::Io(std::io::Error::other("test")),
         ];
 
         for error in errors {
