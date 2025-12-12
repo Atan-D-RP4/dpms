@@ -4,13 +4,46 @@
 /// display power state via CRTC ACTIVE property. Uses libseat for device access
 /// without requiring root privileges, with fallback to direct DRM access.
 use crate::error::Error;
+use drm::control::{
+    AtomicCommitFlags, Device as ControlDevice, atomic, connector, crtc, property,
+};
+use drm::node::{DrmNode, NodeType};
 use drm::Device;
-use drm::control::{AtomicCommitFlags, Device as ControlDevice, atomic, connector, crtc, property};
-use std::fs::File;
+use std::fs::{self, File};
 use std::os::fd::{AsFd, BorrowedFd};
+use std::path::PathBuf;
 
-/// Common DRM device paths to try when opening a device
-const DRM_DEVICE_PATHS: [&str; 3] = ["/dev/dri/card0", "/dev/dri/card1", "/dev/dri/card2"];
+/// Discover all available DRM primary (card) devices
+///
+/// Scans `/dev/dri/` for card devices and validates each using `DrmNode`.
+/// Returns paths sorted by card number for consistent ordering.
+///
+/// # Returns
+/// A vector of valid DRM card device paths
+fn discover_drm_devices() -> Vec<PathBuf> {
+    let mut devices = Vec::new();
+
+    if let Ok(entries) = fs::read_dir("/dev/dri") {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            // Only consider card* devices (primary nodes, not render nodes)
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("card") {
+                    // Validate it's actually a DRM device with correct node type
+                    if let Ok(node) = DrmNode::from_path(&path) {
+                        if node.ty() == NodeType::Primary {
+                            devices.push(path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by card number for consistent ordering
+    devices.sort();
+    devices
+}
 
 /// Wrapper around DRM device
 ///
@@ -90,8 +123,15 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
     seat.dispatch(0)
         .map_err(|e| Error::SeatError(format!("Failed to dispatch seat events: {:?}", e)))?;
 
-    // Find first DRM device by trying common paths
-    for path in &DRM_DEVICE_PATHS {
+    // Discover DRM devices dynamically instead of using hardcoded paths
+    let devices = discover_drm_devices();
+    if devices.is_empty() {
+        return Err(Error::SeatError(
+            "No DRM devices found in /dev/dri/".to_string(),
+        ));
+    }
+
+    for path in &devices {
         // libseat opens the device and grants us DRM master privileges
         // We MUST use the fd returned by libseat, not open a new one
         match seat.open_device(path) {
@@ -118,7 +158,7 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
     }
 
     Err(Error::SeatError(
-        "No DRM device found in standard paths".to_string(),
+        "No DRM device could be opened via libseat".to_string(),
     ))
 }
 
@@ -132,9 +172,16 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
 /// - `Ok((SeatHolder::None, DrmDevice))` - The opened DRM device
 /// - `Err(Error::DrmError)` - Failed to open device
 pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
+    let devices = discover_drm_devices();
+    if devices.is_empty() {
+        return Err(Error::DrmError(
+            "No DRM devices found in /dev/dri/".to_string(),
+        ));
+    }
+
     let mut last_error: Option<String> = None;
 
-    for path in &DRM_DEVICE_PATHS {
+    for path in &devices {
         match File::open(path) {
             Ok(file) => {
                 let drm_device = DrmDevice {
@@ -146,21 +193,21 @@ pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
                     drm_device.set_client_capability(drm::ClientCapability::Atomic, true)
                 {
                     // This device doesn't support atomic, try next
-                    last_error = Some(format!("{}: atomic not supported ({:?})", path, e));
+                    last_error = Some(format!("{:?}: atomic not supported ({:?})", path, e));
                     continue;
                 }
 
                 return Ok((SeatHolder::None, drm_device));
             }
             Err(e) => {
-                last_error = Some(format!("{}: {}", path, e));
+                last_error = Some(format!("{:?}: {}", path, e));
                 continue;
             }
         }
     }
 
     Err(Error::DrmError(
-        last_error.unwrap_or_else(|| "No DRM device found".to_string()),
+        last_error.unwrap_or_else(|| "No DRM device could be opened".to_string()),
     ))
 }
 
@@ -263,29 +310,22 @@ impl DrmDevice {
     /// # Ok::<(), powermon::error::Error>(())
     /// ```
     pub fn set_crtc_active(&self, crtc_handle: crtc::Handle, active: bool) -> Result<(), Error> {
-        // Find the ACTIVE property for this CRTC
+        // Get properties as a hashmap for cleaner lookup
         let props = self
             .get_properties(crtc_handle)
             .map_err(|e| Error::DrmError(format!("Failed to get CRTC properties: {:?}", e)))?;
 
-        let mut active_prop_id = None;
-        for (&prop_handle, _) in props.iter() {
-            let prop_info = self
-                .get_property(prop_handle)
-                .map_err(|e| Error::DrmError(format!("Failed to get property info: {:?}", e)))?;
+        let prop_map = props.as_hashmap(self).map_err(|e| {
+            Error::DrmError(format!("Failed to convert properties to hashmap: {:?}", e))
+        })?;
 
-            if prop_info.name().to_str() == Ok("ACTIVE") {
-                active_prop_id = Some(prop_handle);
-                break;
-            }
-        }
-
-        let active_prop = active_prop_id
+        let active_info = prop_map
+            .get("ACTIVE")
             .ok_or_else(|| Error::DrmError("ACTIVE property not found for CRTC".to_string()))?;
 
         // Create atomic request
         let mut req = atomic::AtomicModeReq::new();
-        req.add_property(crtc_handle, active_prop, property::Value::Boolean(active));
+        req.add_property(crtc_handle, active_info.handle(), property::Value::Boolean(active));
 
         // Commit with ALLOW_MODESET flag (required for ACTIVE property changes)
         let flags = AtomicCommitFlags::ALLOW_MODESET;
@@ -308,6 +348,17 @@ mod tests {
 
         assert_device::<DrmDevice>();
         assert_control_device::<DrmDevice>();
+    }
+
+    #[test]
+    fn discover_drm_devices_returns_sorted_paths() {
+        // This test verifies the discovery function runs without panic
+        // On systems without DRM devices, it returns empty vec
+        let devices = discover_drm_devices();
+        // Verify sorting - each path should be <= the next
+        for window in devices.windows(2) {
+            assert!(window[0] <= window[1]);
+        }
     }
 
     // Note: Integration tests that require actual DRM hardware cannot be run in CI

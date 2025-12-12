@@ -5,6 +5,7 @@ use std::io::IsTerminal;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Backend {
     Wayland,
+    X11,
     Tty,
 }
 
@@ -18,6 +19,11 @@ pub fn detect_backend() -> Result<Backend, Error> {
     // Check for Wayland first
     if std::env::var("WAYLAND_DISPLAY").is_ok() {
         return Ok(Backend::Wayland);
+    }
+
+    // Check for X11 (yet unimplemented)
+    if std::env::var("DISPLAY").is_ok() {
+        return Ok(Backend::X11);
     }
 
     // Check if we're on a TTY

@@ -26,24 +26,6 @@ fn main() -> StdExitCode {
     }
 }
 
-/// Main application logic - dispatches commands to appropriate backend
-fn run(command: cli::Command) -> Result<(), error::Error> {
-    // Detect which backend to use based on environment
-    let backend_type = env::detect_backend()?;
-
-    // Create appropriate backend and execute command
-    match backend_type {
-        env::Backend::Wayland => {
-            let mut backend = wayland::WaylandBackend::new()?;
-            execute_command(&mut backend, command)
-        }
-        env::Backend::Tty => {
-            let mut backend = tty::TtyBackend::new()?;
-            execute_command(&mut backend, command)
-        }
-    }
-}
-
 /// Execute a command using the given backend
 fn execute_command<B: backend::PowerBackend>(
     backend: &mut B,
@@ -64,6 +46,25 @@ fn execute_command<B: backend::PowerBackend>(
             print!("{}", status_output.format(json));
             Ok(())
         }
+    }
+}
+
+/// Main application logic - dispatches commands to appropriate backend
+fn run(command: cli::Command) -> Result<(), error::Error> {
+    // Detect which backend to use based on environment
+    let backend_type = env::detect_backend()?;
+
+    // Create appropriate backend and execute command
+    match backend_type {
+        env::Backend::Wayland => {
+            let mut backend = wayland::WaylandBackend::new()?;
+            execute_command(&mut backend, command)
+        }
+        env::Backend::Tty => {
+            let mut backend = tty::TtyBackend::new()?;
+            execute_command(&mut backend, command)
+        }
+        env::Backend::X11 => Err(error::Error::ProtocolNotSupported),
     }
 }
 

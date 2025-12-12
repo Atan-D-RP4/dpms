@@ -5,6 +5,7 @@
 ///
 /// Implementations:
 /// - Wayland backend: Uses `zwlr_output_power_management_v1` protocol
+/// - X11 backend: Would use XRandR (not yet implemented)
 /// - TTY backend: Uses libseat + DRM atomic commits with daemon mode
 use crate::error::Error;
 use crate::output::PowerState;

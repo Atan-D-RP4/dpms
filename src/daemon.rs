@@ -8,6 +8,7 @@
 /// enforcement and IPC coordination.
 use crate::drm_ops::{SeatHolder, open_drm};
 use crate::error::Error;
+use nix::libc;
 use nix::sys::signal::{self, Signal};
 use nix::unistd::{ForkResult, Pid, fork, setsid};
 use std::fs;

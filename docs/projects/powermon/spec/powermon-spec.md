@@ -61,19 +61,19 @@ powermon is a hybrid monitor power control tool for Linux that works in both Way
 |  |                    Argument Parser                        |
 |  |              (clap: on|off|status [--json])               |
 |  +----------------------------------------------------------+
-|                              |                               
+|                              |
 |  +----------------------------------------------------------+
 |  |                Environment Detector                       |
 |  |         Check WAYLAND_DISPLAY -> try connect              |
 |  +----------------------------------------------------------+
-|                    |                    |                    
-|           +-------v--------+  +--------v--------+           
-|           | Wayland Backend|  |   TTY Backend   |           
-|           |                |  |                 |           
-|           | wayland-client |  | libseat + drm   |           
-|           | zwlr_output_   |  | atomic commit   |           
-|           | power_v1       |  | + daemon        |           
-|           +----------------+  +-----------------+           
+|                    |                    |
+|           +-------v--------+  +--------v--------+
+|           | Wayland Backend|  |   TTY Backend   |
+|           |                |  |                 |
+|           | wayland-client |  | libseat + drm   |
+|           | zwlr_output_   |  | atomic commit   |
+|           | power_v1       |  | + daemon        |
+|           +----------------+  +-----------------+
 +-------------------------------------------------------------+
 ```
 
@@ -197,7 +197,7 @@ nix = { version = "0.27", features = ["signal", "process", "fs"] }
 wayland-client = "0.31"
 wayland-protocols-wlr = { version = "0.2", features = ["client"] }
 
-# TTY backend  
+# TTY backend
 libseat = "0.2"
 drm = "0.11"
 ```
@@ -233,7 +233,7 @@ drm = "0.11"
   WHEN command is parsed
   THEN error is returned with exit code 2
 
----
+______________________________________________________________________
 
 ### Feature: Error Types & Exit Codes (F2)
 
@@ -254,7 +254,7 @@ drm = "0.11"
   THEN usage help is shown
   AND exit code is 2
 
----
+______________________________________________________________________
 
 ### Feature: Output Formatting (F3)
 
@@ -281,7 +281,7 @@ drm = "0.11"
   WHEN formatted
   THEN output is valid JSON `{"power":"off"}`
 
----
+______________________________________________________________________
 
 ### Feature: Environment Detection (F4)
 
@@ -307,7 +307,7 @@ drm = "0.11"
   WHEN environment is detected
   THEN `Error::UnsupportedEnvironment` is returned
 
----
+______________________________________________________________________
 
 ### Feature: Backend Trait (F5)
 
@@ -326,7 +326,7 @@ drm = "0.11"
   WHEN implemented by TTY backend
   THEN `set_power()` and `get_power()` work correctly
 
----
+______________________________________________________________________
 
 ### Feature: Wayland Backend (F6)
 
@@ -366,7 +366,7 @@ drm = "0.11"
   THEN stderr shows "Compositor does not support power management protocol"
   AND command exits with code 1
 
----
+______________________________________________________________________
 
 ### Feature: TTY DRM Operations (F7)
 
@@ -389,7 +389,7 @@ drm = "0.11"
   THEN atomic commit succeeds
   AND display turns on
 
----
+______________________________________________________________________
 
 ### Feature: TTY Daemon Lifecycle (F8)
 
@@ -437,7 +437,7 @@ drm = "0.11"
   WHEN DRM master is released
   THEN display automatically returns to on state
 
----
+______________________________________________________________________
 
 ### Feature: TTY Backend Coordinator (F9)
 
@@ -461,7 +461,7 @@ drm = "0.11"
   THEN daemon running state is checked
   AND correct PowerState is returned
 
----
+______________________________________________________________________
 
 ### Feature: Main Dispatch Logic (F10)
 
@@ -478,7 +478,7 @@ drm = "0.11"
   THEN correct backend is invoked
   AND result is handled properly
 
----
+______________________________________________________________________
 
 ### Feature: Systemd Service Unit (F11)
 
@@ -509,12 +509,13 @@ drm = "0.11"
 **Features**: F1, F2, F3, F4, F5
 
 **Done Criteria**:
+
 - `powermon --help` shows usage
 - `powermon status` detects environment and prints detection result (stub)
 - Invalid commands exit with code 2
 - Error messages go to stderr
 
----
+______________________________________________________________________
 
 ### Phase 2: Wayland Backend
 
@@ -523,13 +524,14 @@ drm = "0.11"
 **Features**: F6
 
 **Done Criteria**:
+
 - `powermon off` turns off display in Wayland session
 - `powermon on` turns on display in Wayland session
 - `powermon status` reports correct state
 - `powermon status --json` returns valid JSON
 - Works without root privileges
 
----
+______________________________________________________________________
 
 ### Phase 3: TTY Backend
 
@@ -538,6 +540,7 @@ drm = "0.11"
 **Features**: F7, F8, F9
 
 **Done Criteria**:
+
 - `powermon off` turns off display on TTY
 - `powermon on` restores display on TTY
 - `powermon status` reports correct state based on daemon
@@ -545,7 +548,7 @@ drm = "0.11"
 - Stale PID files are handled
 - Works without root privileges (with logind session)
 
----
+______________________________________________________________________
 
 ### Phase 4: Integration & Systemd
 
@@ -554,6 +557,7 @@ drm = "0.11"
 **Features**: F10, F11
 
 **Done Criteria**:
+
 - All 17 acceptance criteria pass
 - Systemd service works at boot
 - `systemctl stop powermon` restores display
@@ -634,7 +638,7 @@ FUNCTION detect_environment() -> Result<Environment, Error>
             log_debug("Wayland display set but connection failed")
         END TRY
     END IF
-    
+
     // Try TTY/libseat
     TRY
         seat = libseat_open_seat()
@@ -653,7 +657,7 @@ END FUNCTION
 ```
 FUNCTION handle_tty_off() -> Result<(), Error>
     pid_path = get_pid_file_path()
-    
+
     IF file_exists(pid_path) THEN
         pid = read_pid_file(pid_path)
         IF process_is_running(pid) AND process_is_powermon(pid) THEN
@@ -663,7 +667,7 @@ FUNCTION handle_tty_off() -> Result<(), Error>
             remove_file(pid_path)  // Stale
         END IF
     END IF
-    
+
     match fork() {
         Parent(child_pid) =>
             sleep(100ms)
@@ -672,7 +676,7 @@ FUNCTION handle_tty_off() -> Result<(), Error>
             ELSE
                 RETURN Error::DaemonStartFailed
             END IF
-        
+
         Child =>
             setsid()
             run_daemon_main()
@@ -683,29 +687,29 @@ FUNCTION run_daemon_main()
     seat = libseat_open_seat(callbacks)
     drm_path = find_drm_device()
     drm_fd = seat.open_device(drm_path)
-    
+
     connector = find_first_connected_connector(drm_fd)
     crtc = get_crtc_for_connector(drm_fd, connector)
-    
+
     // Disable display
     atomic_request = create_atomic_request(drm_fd)
     atomic_request.add_property(crtc, "ACTIVE", 0)
     atomic_request.commit()
-    
+
     write_pid_file(get_pid_file_path(), getpid())
     install_signal_handler(SIGTERM, handle_sigterm)
-    
+
     // Wait loop
     WHILE NOT received_sigterm DO
         seat.dispatch()
         sleep(100ms)
     END WHILE
-    
+
     // Restore display
     atomic_request = create_atomic_request(drm_fd)
     atomic_request.add_property(crtc, "ACTIVE", 1)
     atomic_request.commit()
-    
+
     remove_file(get_pid_file_path())
     seat.close_device(drm_fd)
     seat.close()
@@ -718,29 +722,29 @@ END FUNCTION
 ```
 FUNCTION handle_tty_on() -> Result<(), Error>
     pid_path = get_pid_file_path()
-    
+
     IF NOT file_exists(pid_path) THEN
         eprintln("Display already on")
         RETURN Ok(())
     END IF
-    
+
     pid = read_pid_file(pid_path)
-    
+
     IF NOT process_is_running(pid) THEN
         remove_file(pid_path)
         eprintln("Display already on")
         RETURN Ok(())
     END IF
-    
+
     kill(pid, SIGTERM)
-    
+
     FOR i IN 0..50 DO  // 5 second timeout
         IF NOT process_is_running(pid) THEN
             RETURN Ok(())
         END IF
         sleep(100ms)
     END FOR
-    
+
     RETURN Error::DaemonStopTimeout
 END FUNCTION
 ```
@@ -750,7 +754,7 @@ END FUNCTION
 ```
 FUNCTION handle_tty_status() -> Result<PowerState, Error>
     pid_path = get_pid_file_path()
-    
+
     IF file_exists(pid_path) THEN
         pid = read_pid_file(pid_path)
         IF process_is_running(pid) AND process_is_powermon(pid) THEN
@@ -770,33 +774,33 @@ END FUNCTION
 ```
 FUNCTION handle_wayland_power(state: PowerState, display: String) -> Result<(), Error>
     connection = wayland_connect(display)
-    
+
     power_manager = bind_global(zwlr_output_power_manager_v1)
     output = bind_global(wl_output)
-    
+
     IF power_manager is None THEN
         RETURN Error::ProtocolNotSupported
     END IF
-    
+
     power_control = power_manager.get_output_power(output)
-    
+
     mode = IF state == PowerState::On THEN Mode::On ELSE Mode::Off
     power_control.set_mode(mode)
-    
+
     connection.roundtrip()
     RETURN Ok(())
 END FUNCTION
 
 FUNCTION handle_wayland_status(display: String) -> Result<PowerState, Error>
     connection = wayland_connect(display)
-    
+
     power_manager = bind_global(zwlr_output_power_manager_v1)
     output = bind_global(wl_output)
     power_control = power_manager.get_output_power(output)
-    
+
     // Mode event received during roundtrip
     connection.roundtrip()
-    
+
     RETURN IF current_mode == Mode::On THEN PowerState::On ELSE PowerState::Off
 END FUNCTION
 ```
@@ -806,25 +810,25 @@ END FUNCTION
 ```
 FUNCTION main() -> ExitCode
     args = parse_args()
-    
+
     match args {
         Error(e) =>
             eprintln(e)
             RETURN ExitCode::Usage
-        
+
         command =>
             match detect_environment() {
                 Error(e) =>
                     eprintln("Error: {}", e)
                     RETURN ExitCode::Error
-                
+
                 Environment::Wayland { display } =>
                     result = handle_wayland(command, display)
-                
+
                 Environment::Tty =>
                     result = handle_tty(command)
             }
-            
+
             match result {
                 Ok(()) => RETURN ExitCode::Success
                 Ok(status) =>
@@ -865,33 +869,3 @@ PrivateTmp=yes
 [Install]
 WantedBy=multi-user.target
 ```
-
-## Brief Compliance
-
-### Coverage Matrix
-
-| Brief Requirement | Spec Coverage |
-|-------------------|---------------|
-| Hybrid monitor power control | Architecture, F6, F9 |
-| Power savings for laptop servers | F7, F8, F11 |
-| Systemd integration | F11, Systemd Service Unit |
-| No root privileges | libseat design, AC-9, AC-10 |
-| CLI: on/off/status | F1 |
-| CLI: --json flag | F1, F3 |
-| Environment auto-detection | F4 |
-| Fail loudly | F2, AC-8 |
-| Wayland backend | F6 |
-| TTY backend | F7, F8, F9 |
-| Daemon mode | F8 |
-| Single-instance | F8 |
-| Success criteria 1-15 | AC-1 through AC-17 |
-
-### Scope Creep
-
-**None detected.** All spec additions are implementation details required by brief requirements:
-- Exit codes (implied by CLI)
-- PID file location (required for daemon)
-- SIGTERM signal (required for daemon)
-- Stale PID handling (implied by idempotent behavior)
-
-**Compliance Score: 100%**
