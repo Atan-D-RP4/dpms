@@ -1,7 +1,7 @@
 #!/bin/bash
 # Integration test for powermon - tests full on/off/status cycle
 # Run from project root: ./tests/test_power_cycle.sh
-#
+
 # Requirements:
 # - Must be run in TTY or Wayland environment
 # - Binary must be built: cargo build --release
@@ -19,7 +19,10 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 pass() { echo -e "${GREEN}✓ PASS${NC}: $1"; }
-fail() { echo -e "${RED}✗ FAIL${NC}: $1"; exit 1; }
+fail() {
+    echo -e "${RED}✗ FAIL${NC}: $1"
+    exit 1
+}
 info() { echo -e "${YELLOW}→${NC} $1"; }
 
 # Check binary exists

@@ -1,0 +1,153 @@
+{
+  "project_name": "powermon",
+  "spec_path": "docs/projects/powermon/spec/powermon-spec.md",
+  "started": "2025-12-12T00:00:00Z",
+  "current_phase": 4,
+  "total_phases": 4,
+  "features": [
+    {
+      "id": "F1",
+      "name": "CLI Argument Parser",
+      "phase": 1,
+      "status": "complete",
+      "dependencies": [],
+      "attempts": {
+        "test_fix": 0,
+        "review_rework": 1
+      },
+      "blockers": [],
+      "completed_at": "2025-12-12T00:00:00Z"
+    },
+    {
+      "id": "F2",
+      "name": "Error Types & Exit Codes",
+      "phase": 1,
+      "status": "complete",
+      "dependencies": [],
+      "attempts": {
+        "test_fix": 0,
+        "review_rework": 2
+      },
+      "blockers": [],
+      "completed_at": "2025-12-12T00:00:00Z"
+    },
+    {
+      "id": "F3",
+      "name": "Output Formatting",
+      "phase": 1,
+      "status": "complete",
+      "dependencies": ["F1"],
+      "attempts": {
+        "test_fix": 0,
+        "review_rework": 0
+      },
+      "blockers": [],
+      "completed_at": "2025-12-12T00:00:00Z"
+    },
+    {
+      "id": "F4",
+      "name": "Environment Detection",
+      "phase": 1,
+      "status": "complete",
+      "dependencies": [],
+      "attempts": {
+        "test_fix": 0,
+        "review_rework": 0
+      },
+      "blockers": [],
+      "completed_at": "2025-12-12T00:00:00Z"
+    },
+    {
+      "id": "F5",
+      "name": "Backend Trait",
+      "phase": 1,
+      "status": "complete",
+      "dependencies": ["F2"],
+      "attempts": {
+        "test_fix": 0,
+        "review_rework": 0
+      },
+      "blockers": [],
+      "completed_at": "2025-12-12T00:00:00Z"
+    },
+     {
+       "id": "F6",
+       "name": "Wayland Backend",
+       "phase": 2,
+       "status": "complete",
+       "dependencies": ["F4", "F5"],
+       "attempts": {
+         "test_fix": 0,
+         "review_rework": 0
+       },
+       "blockers": [],
+       "completed_at": "2025-12-12T00:00:00Z"
+     },
+     {
+        "id": "F7",
+        "name": "TTY DRM Operations",
+        "phase": 3,
+        "status": "complete",
+        "dependencies": ["F5"],
+        "attempts": {
+          "test_fix": 0,
+          "review_rework": 0
+        },
+        "blockers": [],
+        "completed_at": "2025-12-12T00:00:00Z"
+      },
+      {
+        "id": "F8",
+        "name": "TTY Daemon Lifecycle",
+        "phase": 3,
+        "status": "complete",
+        "dependencies": ["F7"],
+        "attempts": {
+          "test_fix": 0,
+          "review_rework": 0
+        },
+        "blockers": [],
+        "completed_at": "2025-12-12T00:00:00Z"
+      },
+      {
+        "id": "F9",
+        "name": "TTY Backend Coordinator",
+        "phase": 3,
+        "status": "complete",
+        "dependencies": ["F7", "F8"],
+        "attempts": {
+          "test_fix": 0,
+          "review_rework": 0
+        },
+        "blockers": [],
+        "completed_at": "2025-12-12T00:00:00Z"
+      },
+    {
+      "id": "F10",
+      "name": "Main Dispatch Logic",
+      "phase": 4,
+      "status": "complete",
+      "dependencies": ["F1", "F4", "F5", "F6", "F9"],
+      "attempts": {
+        "test_fix": 0,
+        "review_rework": 0
+      },
+      "blockers": [],
+      "completed_at": "2025-12-12T00:00:00Z"
+    },
+     {
+        "id": "F11",
+        "name": "Systemd Service Unit",
+        "phase": 4,
+        "status": "complete",
+        "dependencies": ["F10"],
+        "attempts": {
+          "test_fix": 0,
+          "review_rework": 0
+        },
+        "blockers": [],
+        "completed_at": "2025-12-12T00:00:00Z"
+      }
+  ],
+  "bugs": []
+}
