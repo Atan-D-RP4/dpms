@@ -24,7 +24,11 @@ impl TtyBackend {
     ///
     /// # Returns
     /// - `Ok(TtyBackend)` - Backend ready to use
-    /// - `Err(Error)` - If TTY environment validation fails
+    ///
+    /// # Note
+    /// This does not validate DRM access upfront. DRM access is only needed
+    /// when starting the daemon (dpms off). Signaling an existing daemon
+    /// (dpms on) only requires sending SIGTERM, not DRM access.
     ///
     /// # Example
     /// ```no_run
@@ -33,11 +37,6 @@ impl TtyBackend {
     /// # Ok::<(), dpms::error::Error>(())
     /// ```
     pub fn new() -> Result<Self, Error> {
-        // Validate we can access DRM/seat by attempting to open
-        // This ensures we fail fast if permissions are wrong
-        // But we don't keep the connection open (daemon will open its own)
-        crate::drm_ops::open_drm()?;
-
         Ok(TtyBackend)
     }
 }

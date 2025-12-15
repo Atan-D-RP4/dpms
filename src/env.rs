@@ -1,5 +1,6 @@
 use crate::error::Error;
 use std::io::IsTerminal;
+use std::os::unix::fs::FileTypeExt;
 
 /// Detected backend type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -9,15 +10,56 @@ pub enum Backend {
     Tty,
 }
 
+/// Try to find an available Wayland socket in XDG_RUNTIME_DIR
+///
+/// This is useful for SSH sessions where WAYLAND_DISPLAY is not set
+/// but a compositor is running on the target machine.
+///
+/// # Returns
+/// - `Some(socket_name)` - Found a Wayland socket (e.g., "wayland-1")
+/// - `None` - No Wayland socket found
+fn find_wayland_socket() -> Option<String> {
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").ok()?;
+    let dir = std::fs::read_dir(&runtime_dir).ok()?;
+
+    for entry in dir.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        // Look for wayland-N sockets (not .lock files)
+        if name_str.starts_with("wayland-") && !name_str.ends_with(".lock") {
+            // Verify it's a socket
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.file_type().is_socket() {
+                    return Some(name_str.into_owned());
+                }
+            }
+        }
+    }
+
+    None
+}
+
 /// Detect which backend to use based on environment
 ///
 /// Detection order:
 /// 1. Check if WAYLAND_DISPLAY is set -> Wayland
-/// 2. Check if stdin is a TTY -> TTY
-/// 3. Otherwise -> Error
+/// 2. Check if a Wayland socket exists (for SSH sessions) -> Wayland (sets WAYLAND_DISPLAY)
+/// 3. Check if DISPLAY is set -> X11
+/// 4. Check if stdin is a TTY -> TTY
+/// 5. Otherwise -> Error
 pub fn detect_backend() -> Result<Backend, Error> {
     // Check for Wayland first
     if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        return Ok(Backend::Wayland);
+    }
+
+    // Try to auto-detect Wayland socket (useful for SSH sessions)
+    if let Some(socket) = find_wayland_socket() {
+        // Set WAYLAND_DISPLAY so the Wayland backend can connect
+        // SAFETY: We're setting this before any Wayland connection is made
+        unsafe {
+            std::env::set_var("WAYLAND_DISPLAY", &socket);
+        }
         return Ok(Backend::Wayland);
     }
 

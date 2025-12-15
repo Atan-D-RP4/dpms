@@ -165,8 +165,8 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
 /// Open a DRM device directly without libseat
 ///
 /// This is a fallback for when libseat is unavailable (e.g., SSH session).
-/// Requires user to be in the video group. May not have DRM master if another
-/// process holds it.
+/// Requires user to be in the video group and attempts to acquire DRM master.
+/// May fail if another process holds DRM master.
 ///
 /// # Returns
 /// - `Ok((SeatHolder::None, DrmDevice))` - The opened DRM device
@@ -187,6 +187,13 @@ pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
                 let drm_device = DrmDevice {
                     inner: DrmDeviceInner::Direct(file),
                 };
+
+                // Try to acquire DRM master (required for atomic commits)
+                // This may fail if another process (e.g., compositor) holds it
+                if let Err(e) = drm_device.acquire_master_lock() {
+                    last_error = Some(format!("{:?}: failed to acquire DRM master ({:?})", path, e));
+                    continue;
+                }
 
                 // Set DRM client capabilities for atomic modesetting
                 if let Err(e) =
