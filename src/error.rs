@@ -35,10 +35,16 @@ pub enum Error {
     NoDisplayFound,
 
     #[error("Display '{name}' not found. Available: {}", available.join(", "))]
-    DisplayNotFound { name: String, available: Vec<String> },
+    DisplayNotFound {
+        name: String,
+        available: Vec<String>,
+    },
 
     #[error("Display '{name}' is ambiguous. Did you mean: {}?", candidates.join(", "))]
-    AmbiguousDisplay { name: String, candidates: Vec<String> },
+    AmbiguousDisplay {
+        name: String,
+        candidates: Vec<String>,
+    },
 
     #[error("Daemon failed to start: {0}")]
     DaemonStartFailed(String),

@@ -165,9 +165,7 @@ impl WaylandBackend {
                 } else if matches.len() > 1 {
                     let candidates: Vec<String> = matches
                         .iter()
-                        .filter_map(|id| {
-                            self.state.outputs.get(id).and_then(|o| o.name.clone())
-                        })
+                        .filter_map(|id| self.state.outputs.get(id).and_then(|o| o.name.clone()))
                         .collect();
                     Err(Error::AmbiguousDisplay {
                         name: name.clone(),
@@ -276,7 +274,10 @@ impl PowerBackend for WaylandBackend {
                 };
 
                 results.push(DisplayInfo {
-                    name: output_info.name.clone().unwrap_or_else(|| format!("output-{}", id)),
+                    name: output_info
+                        .name
+                        .clone()
+                        .unwrap_or_else(|| format!("output-{}", id)),
                     power,
                     description: output_info.description.clone(),
                     make: output_info.make.clone(),
@@ -326,11 +327,7 @@ impl Dispatch<wl_output::WlOutput, u32> for WaylandState {
                 wl_output::Event::Description { description } => {
                     output_info.description = Some(description);
                 }
-                wl_output::Event::Geometry {
-                    make,
-                    model,
-                    ..
-                } => {
+                wl_output::Event::Geometry { make, model, .. } => {
                     output_info.make = Some(make);
                     output_info.model = Some(model);
                 }

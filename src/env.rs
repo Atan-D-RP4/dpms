@@ -28,10 +28,10 @@ fn find_wayland_socket() -> Option<String> {
         // Look for wayland-N sockets (not .lock files)
         if name_str.starts_with("wayland-") && !name_str.ends_with(".lock") {
             // Verify it's a socket
-            if let Ok(metadata) = entry.metadata() {
-                if metadata.file_type().is_socket() {
-                    return Some(name_str.into_owned());
-                }
+            if let Ok(metadata) = entry.metadata()
+                && metadata.file_type().is_socket()
+            {
+                return Some(name_str.into_owned());
             }
         }
     }

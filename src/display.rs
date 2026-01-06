@@ -1,9 +1,7 @@
-/// Display selection and matching logic
-///
-/// This module provides types and functions for selecting target displays
-/// by name, with support for exact and partial matching.
-
-/// Display target selection
+//! Display target selection and matching logic
+//!
+//! This module provides types and functions for selecting target displays
+//! by name, with support for exact and partial matching.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DisplayTarget {
     /// Specific display by name
@@ -51,7 +49,10 @@ mod tests {
     use crate::output::PowerState;
 
     /// Find a display by name with exact and partial matching (test helper)
-    fn find_display_by_name<'a>(displays: &'a [String], name: &str) -> Result<&'a str, crate::error::Error> {
+    fn find_display_by_name<'a>(
+        displays: &'a [String],
+        name: &str,
+    ) -> Result<&'a str, crate::error::Error> {
         // Exact match first
         if let Some(exact) = displays.iter().find(|d| d.as_str() == name) {
             return Ok(exact);

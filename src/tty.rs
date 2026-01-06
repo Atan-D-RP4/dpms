@@ -103,7 +103,7 @@ impl PowerBackend for TtyBackend {
 
         // Return a single "display" representing the TTY state
         let power = self.current_power_state();
-        
+
         Ok(vec![DisplayInfo {
             name: "tty".to_string(),
             power,

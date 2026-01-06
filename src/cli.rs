@@ -1,5 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use clap_complete::{generate, Shell as ClapShell};
+use clap_complete::{Shell as ClapShell, generate};
 use std::io;
 
 use crate::display::DisplayTarget;
@@ -12,7 +12,7 @@ pub enum Shell {
     Fish,
     Elvish,
     #[value(name = "powershell")]
-    PowerShell,
+    Powershell,
 }
 
 impl From<Shell> for ClapShell {
@@ -22,7 +22,7 @@ impl From<Shell> for ClapShell {
             Shell::Zsh => ClapShell::Zsh,
             Shell::Fish => ClapShell::Fish,
             Shell::Elvish => ClapShell::Elvish,
-            Shell::PowerShell => ClapShell::PowerShell,
+            Shell::Powershell => ClapShell::PowerShell,
         }
     }
 }
@@ -30,12 +30,26 @@ impl From<Shell> for ClapShell {
 /// CLI command
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
-    On { target: DisplayTarget },
-    Off { target: DisplayTarget },
-    Toggle { target: DisplayTarget },
-    Status { target: DisplayTarget, json: bool },
-    List { json: bool, verbose: bool },
-    Completion { shell: Shell },
+    On {
+        target: DisplayTarget,
+    },
+    Off {
+        target: DisplayTarget,
+    },
+    Toggle {
+        target: DisplayTarget,
+    },
+    Status {
+        target: DisplayTarget,
+        json: bool,
+    },
+    List {
+        json: bool,
+        verbose: bool,
+    },
+    Completion {
+        shell: Shell,
+    },
     /// Internal: run as daemon process (not for user use)
     DaemonInternal,
 }
@@ -347,9 +361,7 @@ mod tests {
         let command = command_from_commands(cli.command);
         assert!(matches!(
             command,
-            Command::Completion {
-                shell: Shell::Bash
-            }
+            Command::Completion { shell: Shell::Bash }
         ));
     }
 
@@ -357,10 +369,7 @@ mod tests {
     fn parse_completion_zsh() {
         let cli = Cli::try_parse_from(["dpms", "completion", "zsh"]).unwrap();
         let command = command_from_commands(cli.command);
-        assert!(matches!(
-            command,
-            Command::Completion { shell: Shell::Zsh }
-        ));
+        assert!(matches!(command, Command::Completion { shell: Shell::Zsh }));
     }
 
     #[test]
@@ -380,7 +389,7 @@ mod tests {
         assert!(matches!(
             command,
             Command::Completion {
-                shell: Shell::PowerShell
+                shell: Shell::Powershell
             }
         ));
     }

@@ -51,10 +51,7 @@ fn test_status_subcommand_help() {
         .output()
         .expect("Failed to execute dpms status --help");
 
-    assert!(
-        output.status.success(),
-        "dpms status --help should succeed"
-    );
+    assert!(output.status.success(), "dpms status --help should succeed");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -86,10 +83,7 @@ fn test_off_subcommand_help() {
         .output()
         .expect("Failed to execute dpms off --help");
 
-    assert!(
-        output.status.success(),
-        "dpms off --help should succeed"
-    );
+    assert!(output.status.success(), "dpms off --help should succeed");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(

@@ -4,11 +4,9 @@
 /// display power state via CRTC ACTIVE property. Uses libseat for device access
 /// without requiring root privileges, with fallback to direct DRM access.
 use crate::error::Error;
-use drm::control::{
-    AtomicCommitFlags, Device as ControlDevice, atomic, connector, crtc, property,
-};
-use drm::node::{DrmNode, NodeType};
 use drm::Device;
+use drm::control::{AtomicCommitFlags, Device as ControlDevice, atomic, connector, crtc, property};
+use drm::node::{DrmNode, NodeType};
 use std::fs::{self, File};
 use std::os::fd::{AsFd, BorrowedFd};
 use std::path::PathBuf;
@@ -27,14 +25,14 @@ fn discover_drm_devices() -> Vec<PathBuf> {
         for entry in entries.flatten() {
             let path = entry.path();
             // Only consider card* devices (primary nodes, not render nodes)
-            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                if name.starts_with("card") {
-                    // Validate it's actually a DRM device with correct node type
-                    if let Ok(node) = DrmNode::from_path(&path) {
-                        if node.ty() == NodeType::Primary {
-                            devices.push(path);
-                        }
-                    }
+            if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                && name.starts_with("card")
+            {
+                // Validate it's actually a DRM device with correct node type
+                if let Ok(node) = DrmNode::from_path(&path)
+                    && node.ty() == NodeType::Primary
+                {
+                    devices.push(path);
                 }
             }
         }
@@ -115,7 +113,10 @@ pub fn open_drm_with_libseat() -> Result<(SeatHolder, DrmDevice), Error> {
 
     // Open seat with callback for events
     let mut seat = libseat::Seat::open(move |_seat, event| {
-        *seat_event_clone.lock().unwrap() = Some(event);
+        // *seat_event_clone.lock().unwrap() = Some(event);
+        if let Ok(mut guard) = seat_event_clone.lock() {
+            *guard = Some(event);
+        }
     })
     .map_err(|e| Error::SeatError(format!("Failed to open seat: {:?}", e)))?;
 
@@ -191,7 +192,10 @@ pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
                 // Try to acquire DRM master (required for atomic commits)
                 // This may fail if another process (e.g., compositor) holds it
                 if let Err(e) = drm_device.acquire_master_lock() {
-                    last_error = Some(format!("{:?}: failed to acquire DRM master ({:?})", path, e));
+                    last_error = Some(format!(
+                        "{:?}: failed to acquire DRM master ({:?})",
+                        path, e
+                    ));
                     continue;
                 }
 
@@ -213,9 +217,9 @@ pub fn open_drm_direct() -> Result<(SeatHolder, DrmDevice), Error> {
         }
     }
 
-    Err(Error::DrmError(
-        last_error.unwrap_or_else(|| "No DRM device could be opened".to_string()),
-    ))
+    Err(Error::DrmError(last_error.unwrap_or_else(|| {
+        "No DRM device could be opened".to_string()
+    })))
 }
 
 /// Open a DRM device, trying libseat first then falling back to direct access
@@ -332,7 +336,11 @@ impl DrmDevice {
 
         // Create atomic request
         let mut req = atomic::AtomicModeReq::new();
-        req.add_property(crtc_handle, active_info.handle(), property::Value::Boolean(active));
+        req.add_property(
+            crtc_handle,
+            active_info.handle(),
+            property::Value::Boolean(active),
+        );
 
         // Commit with ALLOW_MODESET flag (required for ACTIVE property changes)
         let flags = AtomicCommitFlags::ALLOW_MODESET;

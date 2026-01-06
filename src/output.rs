@@ -105,12 +105,7 @@ mod tests {
         }
     }
 
-    fn make_display_verbose(
-        name: &str,
-        power: PowerState,
-        make: &str,
-        model: &str,
-    ) -> DisplayInfo {
+    fn make_display_verbose(name: &str, power: PowerState, make: &str, model: &str) -> DisplayInfo {
         DisplayInfo {
             name: name.to_string(),
             power,
@@ -183,7 +178,12 @@ mod tests {
 
     #[test]
     fn format_list_verbose() {
-        let displays = vec![make_display_verbose("DP-1", PowerState::On, "Dell", "U2720Q")];
+        let displays = vec![make_display_verbose(
+            "DP-1",
+            PowerState::On,
+            "Dell",
+            "U2720Q",
+        )];
         assert_eq!(
             format_list(&displays, false, true),
             "DP-1: On (Dell U2720Q)\n"
