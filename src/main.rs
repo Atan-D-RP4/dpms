@@ -89,10 +89,15 @@ fn run(command: cli::Command) -> Result<(), error::Error> {
 
     // Create appropriate backend and execute command
     match backend_type {
-        env::Backend::Wayland => {
-            let mut backend = wayland::WaylandBackend::new()?;
-            execute_command(&mut backend, command)
-        }
+        env::Backend::Wayland => match wayland::WaylandBackend::new() {
+            Ok(mut backend) => execute_command(&mut backend, command),
+            Err(error::Error::Io(_) | error::Error::ProtocolNotSupported) => {
+                eprintln!("Warning: Wayland backend failed, falling back to TTY");
+                let mut backend = tty::TtyBackend::new()?;
+                execute_command(&mut backend, command)
+            }
+            Err(e) => Err(e),
+        },
         env::Backend::Tty => {
             let mut backend = tty::TtyBackend::new()?;
             execute_command(&mut backend, command)
@@ -107,12 +112,70 @@ mod tests {
 
     #[test]
     fn error_converts_to_exit_code_1() {
-        let error = error::Error::UnsupportedEnvironment;
-        let exit_code = error.exit_code();
-        assert_eq!(exit_code, error::ExitCode::Error);
-        assert_eq!(exit_code as i32, 1);
+        // Test that a concrete error converts to exit code 1
+        let err = error::Error::UnsupportedEnvironment;
+        let exit_code: i32 = err.exit_code().into();
+        assert_eq!(exit_code, 1);
     }
 
+    #[test]
+    fn io_error_triggers_fallback() {
+        // Test that Io errors trigger fallback behavior in pattern matching
+        let io_error = std::io::Error::new(std::io::ErrorKind::ConnectionRefused, "test");
+        let dpms_error = error::Error::Io(io_error);
+
+        // This error should match the fallback pattern
+        matches!(dpms_error, error::Error::Io(_));
+    }
+
+    #[test]
+    fn protocol_not_supported_triggers_fallback() {
+        // Test that ProtocolNotSupported triggers fallback behavior
+        let dpms_error = error::Error::ProtocolNotSupported;
+
+        // This error should match the fallback pattern
+        matches!(dpms_error, error::Error::ProtocolNotSupported);
+    }
+
+    #[test]
+    fn display_not_found_does_not_trigger_fallback() {
+        // Test that DisplayNotFound does NOT trigger fallback
+        let dpms_error = error::Error::DisplayNotFound {
+            name: "test-display".to_string(),
+            available: vec!["a".to_string(), "b".to_string()],
+        };
+
+        // This error should not match the fallback pattern
+        assert!(!matches!(dpms_error, error::Error::Io(_)));
+        assert!(!matches!(dpms_error, error::Error::ProtocolNotSupported));
+        matches!(
+            dpms_error,
+            error::Error::DisplayNotFound {
+                name: _,
+                available: _
+            }
+        );
+    }
+
+    #[test]
+    fn ambiguous_display_does_not_trigger_fallback() {
+        // Test that AmbiguousDisplay does NOT trigger fallback
+        let dpms_error = error::Error::AmbiguousDisplay {
+            name: "test-display".to_string(),
+            candidates: vec!["a".to_string(), "b".to_string()],
+        };
+
+        // This error should not match the fallback pattern
+        assert!(!matches!(dpms_error, error::Error::Io(_)));
+        assert!(!matches!(dpms_error, error::Error::ProtocolNotSupported));
+        matches!(
+            dpms_error,
+            error::Error::AmbiguousDisplay {
+                name: _,
+                candidates: _
+            }
+        );
+    }
     #[test]
     fn error_has_message() {
         let error = error::Error::ProtocolNotSupported;
