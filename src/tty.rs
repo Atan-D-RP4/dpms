@@ -10,6 +10,7 @@
 /// - When querying status: checks if daemon is running
 use crate::backend::PowerBackend;
 use crate::daemon;
+use crate::display::{DisplayInfo, DisplayTarget};
 use crate::error::Error;
 use crate::output::PowerState;
 
@@ -17,6 +18,9 @@ use crate::output::PowerState;
 ///
 /// This backend uses a daemon process to manage display power state in TTY
 /// environments. It delegates actual power control to daemon functions (F8).
+///
+/// Note: TTY backend currently operates on all displays as a single unit.
+/// Multi-display selection (F20) is a future enhancement.
 pub struct TtyBackend;
 
 impl TtyBackend {
@@ -39,10 +43,28 @@ impl TtyBackend {
     pub fn new() -> Result<Self, Error> {
         Ok(TtyBackend)
     }
+
+    /// Get the current power state (internal helper)
+    fn current_power_state(&self) -> PowerState {
+        match daemon::is_daemon_running() {
+            Some(_pid) => PowerState::Off,
+            None => PowerState::On,
+        }
+    }
 }
 
 impl PowerBackend for TtyBackend {
-    fn set_power(&mut self, state: PowerState) -> Result<(), Error> {
+    fn set_power(&mut self, target: &DisplayTarget, state: PowerState) -> Result<(), Error> {
+        // TTY backend currently doesn't support per-display control
+        // Warn if a specific display is targeted
+        if let DisplayTarget::Named(name) = target {
+            eprintln!(
+                "Warning: TTY backend does not support per-display control. \
+                 Ignoring display name '{}', operating on all displays.",
+                name
+            );
+        }
+
         match state {
             PowerState::Off => {
                 // Check if daemon is already running
@@ -69,14 +91,30 @@ impl PowerBackend for TtyBackend {
         }
     }
 
-    fn get_power(&self) -> Result<PowerState, Error> {
-        // Query daemon running state
-        // If daemon is running, display is off
-        // If daemon is not running, display is on
-        match daemon::is_daemon_running() {
-            Some(_pid) => Ok(PowerState::Off),
-            None => Ok(PowerState::On),
+    fn get_power(&self, target: &DisplayTarget) -> Result<Vec<DisplayInfo>, Error> {
+        // TTY backend currently doesn't support per-display queries
+        if let DisplayTarget::Named(name) = target {
+            eprintln!(
+                "Warning: TTY backend does not support per-display queries. \
+                 Ignoring display name '{}', showing all displays.",
+                name
+            );
         }
+
+        // Return a single "display" representing the TTY state
+        let power = self.current_power_state();
+        
+        Ok(vec![DisplayInfo {
+            name: "tty".to_string(),
+            power,
+            description: Some("TTY/Console display".to_string()),
+            make: None,
+            model: None,
+        }])
+    }
+
+    fn list_displays(&self) -> Result<Vec<DisplayInfo>, Error> {
+        self.get_power(&DisplayTarget::All)
     }
 }
 
@@ -92,13 +130,25 @@ mod tests {
     }
 
     #[test]
-    fn get_power_when_daemon_not_running() {
+    fn get_power_returns_display_info() {
         let backend = TtyBackend;
-        let result = backend.get_power();
+        let result = backend.get_power(&DisplayTarget::Default);
 
-        // When daemon is not running (stub returns None), display should be On
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), PowerState::On);
+        let displays = result.unwrap();
+        assert_eq!(displays.len(), 1);
+        assert_eq!(displays[0].name, "tty");
+    }
+
+    #[test]
+    fn list_displays_returns_tty_display() {
+        let backend = TtyBackend;
+        let result = backend.list_displays();
+
+        assert!(result.is_ok());
+        let displays = result.unwrap();
+        assert_eq!(displays.len(), 1);
+        assert_eq!(displays[0].name, "tty");
     }
 
     // Note: More comprehensive tests require F8 implementation or mocking

@@ -129,15 +129,20 @@ mod tests {
             }
         }
 
-        // Note: This test will pass if we're on a TTY, or fail with UnsupportedEnvironment
-        // if we're not on a TTY (e.g., running in IDE or CI)
-        // We test the logic, not the actual environment
+        // Note: This test validates the detection logic works correctly.
+        // The result depends on the environment:
+        // - TTY: returns Backend::Tty
+        // - Wayland socket exists: returns Backend::Wayland (auto-detected)
+        // - Neither: returns UnsupportedEnvironment
         match result {
             Ok(Backend::Tty) => {
                 // We're on a TTY, correct detection
             }
+            Ok(Backend::Wayland) => {
+                // Wayland socket was auto-detected (running in Wayland session)
+            }
             Err(Error::UnsupportedEnvironment) => {
-                // We're not on a TTY (e.g., IDE/CI), this is also correct
+                // We're not on a TTY and no Wayland (e.g., CI), this is also correct
             }
             other => panic!("Unexpected result: {:?}", other),
         }

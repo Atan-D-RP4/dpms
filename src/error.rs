@@ -34,6 +34,12 @@ pub enum Error {
     #[error("No connected display found")]
     NoDisplayFound,
 
+    #[error("Display '{name}' not found. Available: {}", available.join(", "))]
+    DisplayNotFound { name: String, available: Vec<String> },
+
+    #[error("Display '{name}' is ambiguous. Did you mean: {}?", candidates.join(", "))]
+    AmbiguousDisplay { name: String, candidates: Vec<String> },
+
     #[error("Daemon failed to start: {0}")]
     DaemonStartFailed(String),
 
@@ -89,6 +95,14 @@ mod tests {
             Error::UnsupportedEnvironment,
             Error::ProtocolNotSupported,
             Error::NoDisplayFound,
+            Error::DisplayNotFound {
+                name: "HDMI-1".to_string(),
+                available: vec!["DP-1".to_string(), "eDP-1".to_string()],
+            },
+            Error::AmbiguousDisplay {
+                name: "DP".to_string(),
+                candidates: vec!["DP-1".to_string(), "DP-2".to_string()],
+            },
             Error::DaemonStartFailed("test".to_string()),
             Error::DaemonStopTimeout,
             Error::SignalError("test".to_string()),
@@ -114,6 +128,14 @@ mod tests {
             Error::UnsupportedEnvironment,
             Error::ProtocolNotSupported,
             Error::NoDisplayFound,
+            Error::DisplayNotFound {
+                name: "HDMI-1".to_string(),
+                available: vec!["DP-1".to_string(), "eDP-1".to_string()],
+            },
+            Error::AmbiguousDisplay {
+                name: "DP".to_string(),
+                candidates: vec!["DP-1".to_string(), "DP-2".to_string()],
+            },
             Error::DaemonStartFailed("test".to_string()),
             Error::DaemonStopTimeout,
             Error::SignalError("test".to_string()),
@@ -131,5 +153,31 @@ mod tests {
                 error
             );
         }
+    }
+
+    #[test]
+    fn display_not_found_error_message() {
+        let error = Error::DisplayNotFound {
+            name: "HDMI-1".to_string(),
+            available: vec!["DP-1".to_string(), "eDP-1".to_string()],
+        };
+        let message = error.to_string();
+        assert!(message.contains("HDMI-1"));
+        assert!(message.contains("not found"));
+        assert!(message.contains("DP-1"));
+        assert!(message.contains("eDP-1"));
+    }
+
+    #[test]
+    fn ambiguous_display_error_message() {
+        let error = Error::AmbiguousDisplay {
+            name: "DP".to_string(),
+            candidates: vec!["DP-1".to_string(), "DP-2".to_string()],
+        };
+        let message = error.to_string();
+        assert!(message.contains("DP"));
+        assert!(message.contains("ambiguous"));
+        assert!(message.contains("DP-1"));
+        assert!(message.contains("DP-2"));
     }
 }

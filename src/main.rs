@@ -1,6 +1,7 @@
 mod backend;
 mod cli;
 mod daemon;
+mod display;
 mod drm_ops;
 mod env;
 mod error;
@@ -32,18 +33,40 @@ fn execute_command<B: backend::PowerBackend>(
     command: cli::Command,
 ) -> Result<(), error::Error> {
     match command {
-        cli::Command::On => {
-            backend.set_power(output::PowerState::On)?;
+        cli::Command::On { target } => {
+            backend.set_power(&target, output::PowerState::On)?;
             Ok(())
         }
-        cli::Command::Off => {
-            backend.set_power(output::PowerState::Off)?;
+        cli::Command::Off { target } => {
+            backend.set_power(&target, output::PowerState::Off)?;
             Ok(())
         }
-        cli::Command::Status { json } => {
-            let state = backend.get_power()?;
-            let status_output = output::StatusOutput::new(state);
-            print!("{}", status_output.format(json));
+        cli::Command::Toggle { target } => {
+            let displays = backend.get_power(&target)?;
+            for display in displays {
+                let new_state = match display.power {
+                    output::PowerState::On => output::PowerState::Off,
+                    output::PowerState::Off => output::PowerState::On,
+                };
+                backend.set_power(&display::DisplayTarget::Named(display.name), new_state)?;
+            }
+            Ok(())
+        }
+        cli::Command::Status { target, json } => {
+            let displays = backend.get_power(&target)?;
+            print!("{}", output::format_status(&displays, json));
+            Ok(())
+        }
+        cli::Command::List { json, verbose } => {
+            let displays = backend.list_displays()?;
+            if displays.is_empty() {
+                return Err(error::Error::NoDisplayFound);
+            }
+            print!("{}", output::format_list(&displays, json, verbose));
+            Ok(())
+        }
+        cli::Command::Completion { shell } => {
+            cli::generate_completions(shell);
             Ok(())
         }
         cli::Command::DaemonInternal => {
