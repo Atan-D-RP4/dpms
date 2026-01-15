@@ -1,0 +1,136 @@
+{
+  "project_name": "dpms-v2",
+  "spec_path": "docs/projects/dpms/spec/dpms-v2-spec.md",
+  "started": "2025-12-21T00:00:00Z",
+  "current_phase": 2,
+  "total_phases": 3,
+  "features": [
+     {
+       "id": "F12",
+       "name": "Extended CLI Parser",
+       "phase": 1,
+       "status": "complete",
+       "dependencies": [],
+       "complexity": "M",
+       "attempts": {
+         "test_fix": 0,
+         "review_rework": 0
+       },
+       "blockers": [],
+       "completed_at": "2025-12-21T00:00:00Z"
+     },
+      {
+        "id": "F13",
+        "name": "Display Selection Module",
+        "phase": 1,
+        "status": "complete",
+        "dependencies": [],
+        "complexity": "S",
+        "attempts": {
+          "test_fix": 0,
+          "review_rework": 0
+        },
+        "blockers": [],
+        "completed_at": "2025-12-21T00:00:00Z"
+      },
+     {
+       "id": "F14",
+       "name": "Toggle Command",
+       "phase": 1,
+       "status": "complete",
+       "dependencies": ["F12"],
+       "complexity": "S",
+       "attempts": {
+         "test_fix": 0,
+         "review_rework": 0
+       },
+       "blockers": [],
+       "completed_at": "2025-12-21T00:00:00Z"
+     },
+     {
+       "id": "F15",
+       "name": "List Command",
+       "phase": 1,
+       "status": "complete",
+       "dependencies": ["F12"],
+       "complexity": "M",
+       "attempts": {
+         "test_fix": 0,
+         "review_rework": 0
+       },
+       "blockers": [],
+       "completed_at": "2025-12-21T00:00:00Z"
+     },
+     {
+       "id": "F16",
+       "name": "Shell Completions",
+       "phase": 1,
+       "status": "complete",
+       "dependencies": ["F12"],
+       "complexity": "S",
+       "attempts": {
+         "test_fix": 0,
+         "review_rework": 0
+       },
+       "blockers": [],
+       "completed_at": "2025-12-21T00:00:00Z"
+     },
+     {
+       "id": "F18",
+       "name": "Extended Output Formatting",
+       "phase": 1,
+       "status": "complete",
+       "dependencies": ["F15"],
+       "complexity": "M",
+       "attempts": {
+         "test_fix": 0,
+         "review_rework": 0
+       },
+       "blockers": [],
+       "completed_at": "2025-12-21T00:00:00Z"
+     },
+     {
+        "id": "F19",
+        "name": "Extended Error Types",
+        "phase": 1,
+        "status": "complete",
+        "dependencies": [],
+        "complexity": "S",
+        "attempts": {
+          "test_fix": 0,
+          "review_rework": 0
+        },
+        "blockers": [],
+        "completed_at": "2025-12-21T00:00:00Z"
+      },
+    {
+       "id": "F17",
+       "name": "Extended Wayland Backend",
+       "phase": 2,
+       "status": "complete",
+       "dependencies": ["F13", "F15"],
+       "complexity": "L",
+       "attempts": {
+         "test_fix": 0,
+         "review_rework": 0
+       },
+       "blockers": [],
+       "completed_at": "2025-12-21T00:00:00Z"
+     },
+    {
+      "id": "F20",
+      "name": "Extended TTY Backend",
+      "phase": 3,
+      "status": "pending",
+      "dependencies": ["F17"],
+      "complexity": "M",
+      "attempts": {
+        "test_fix": 0,
+        "review_rework": 0
+      },
+      "blockers": [],
+      "completed_at": null
+    }
+  ],
+  "bugs": []
+}
